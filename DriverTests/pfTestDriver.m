@@ -35,7 +35,8 @@ Rk = diag([sig_rhoa^2 sig_rhob^2]);
 Qk = diag([qtilsteer qtilspeed])/(thist(2)-thist(1));
 
 % Initialization
-[xguess,Pguess] = cartInit0(zhist,thist);
+kInit = 1;
+[xguess,Pguess] = cartInit(kInit,zhist,thist);
 
 %% Filter setup
 
@@ -49,12 +50,12 @@ nRK = 10;
 % Control vector
 uk = zeros(length(thist),1);
 
-pf = batch_RegPF(ffunc,hfunc,'CD',xguess,Pguess,uk,zhist,thist,Qk,Rk,nRK,5000,1000,1);
+pf = batch_PF(ffunc,hfunc,'CD',kInit,xguess,Pguess,uk,zhist,thist,Qk,Rk,nRK,500,1);
 pf = pf.doFilter();
 
 %% Results
 hold on
-plot(pf.xhathist(2,:),pf.xhathist(3,:))
+plot(pf.xhathist(2,(kInit+1:end)),pf.xhathist(3,(kInit+1:end)))
 grid on
 xlim([-3 2])
 ylim([1 6])

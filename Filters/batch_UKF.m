@@ -37,24 +37,25 @@ classdef batch_UKF < batchFilter
 %% UKF Methods
     methods
         % UKF constructor
-        function UKFobj = batch_UKF(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
+        function UKFobj = batch_UKF(fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
             % Prepare for superclass constructor
             if nargin == 0
-                super_args = cell(1,11);
-            elseif nargin < 10
+                super_args = cell(1,12);
+            elseif nargin < 11
                 error('Not enough input arguments')
             else
                 super_args{1}   = fmodel;
                 super_args{2}   = hmodel;
                 super_args{3}   = modelFlag;
-                super_args{4}   = xhatInit;
-                super_args{5}   = PInit;
-                super_args{6}   = uhist;
-                super_args{7}   = zhist;
-                super_args{8}   = thist;
-                super_args{9}   = Q;
-                super_args{10}  = R;
-                super_args{11}  = varargin;
+                super_args{4}   = kInit;
+                super_args{5}   = xhatInit;
+                super_args{6}   = PInit;
+                super_args{7}   = uhist;
+                super_args{8}   = zhist;
+                super_args{9}   = thist;
+                super_args{10}  = Q;
+                super_args{11}  = R;
+                super_args{12}  = varargin;
             end
             % batchFilter superclass constructor
             UKFobj@batchFilter(super_args{:});
@@ -124,14 +125,19 @@ classdef batch_UKF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-            xhatk                   = UKFobj.xhatInit;
-            Pk                      = UKFobj.PInit;
-            UKFobj.xhathist(:,1)    = UKFobj.xhatInit;
-            UKFobj.Phist(:,:,1)     = UKFobj.PInit;
-            tk                      = 0;
-            vk                      = zeros(UKFobj.nv,1);
-            Svvk                    = chol(UKFobj.Q)';
-            Nsigma                  = 1 + 2*(UKFobj.nx+UKFobj.nv);
+            xhatk                                = UKFobj.xhatInit;
+            Pk                                   = UKFobj.PInit;
+            UKFobj.xhathist(:,UKFobj.kInit+1)    = UKFobj.xhatInit;
+            UKFobj.Phist(:,:,UKFobj.kInit+1)     = UKFobj.PInit;
+            vk                                   = zeros(UKFobj.nv,1);
+            Svvk                                 = chol(UKFobj.Q)';
+            Nsigma                               = 1 + 2*(UKFobj.nx+UKFobj.nv);
+            % Make sure correct initial tk is used.
+            if UKFobj.kInit == 0
+                tk = 0;
+            else
+                tk = UKFobj.thist(UKFobj.kInit);
+            end
         end
         
         % This method performs UKF class filter estimation
@@ -140,7 +146,7 @@ classdef batch_UKF < batchFilter
             [UKFobj,xhatk,Pk,tk,vhatk,Svvk,Nsigma] = initFilter(UKFobj);
 
             % Main filter loop.
-            for k = 0:(UKFobj.kmax-1)
+            for k = UKFobj.kInit:(UKFobj.kmax-1)
                 % Prepare loop
                 kp1     = k+1;
                 tkp1    = UKFobj.thist(kp1);
@@ -161,7 +167,7 @@ classdef batch_UKF < batchFilter
                     % Propagate sigma points
                     [xkp1_jj]   = dynamicProp(UKFobj,xdum,uk,vdum,tk,tkp1,k);
                     % Linearize measurements about sigma points
-                    [zkp1_jj,~] = feval(UKFobj.hmodel,xkp1_jj,1);
+                    [zkp1_jj,~] = feval(UKFobj.hmodel,xkp1_jj,kp1,1);
 
                     % Calculate a priori state estimate and measurements
                     W_jj = Wvec(jj,1);

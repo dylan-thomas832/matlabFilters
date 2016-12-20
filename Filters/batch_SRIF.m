@@ -61,24 +61,25 @@ classdef batch_SRIF < batchFilter
 %% SRIF Methods
     methods
         % SRIF constructor
-        function SRIFobj = batch_SRIF(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
+        function SRIFobj = batch_SRIF(fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
             % Prepare for superclass constructor
             if nargin == 0
-                super_args = cell(1,11);
-            elseif nargin < 10
+                super_args = cell(1,12);
+            elseif nargin < 11
                 error('Not enough input arguments')
             else
                 super_args{1}   = fmodel;
                 super_args{2}   = hmodel;
                 super_args{3}   = modelFlag;
-                super_args{4}   = xhatInit;
-                super_args{5}   = PInit;
-                super_args{6}   = uhist;
-                super_args{7}   = zhist;
-                super_args{8}   = thist;
-                super_args{9}   = Q;
-                super_args{10}  = R;
-                super_args{11}  = varargin;
+                super_args{4}   = kInit;
+                super_args{5}   = xhatInit;
+                super_args{6}   = PInit;
+                super_args{7}   = uhist;
+                super_args{8}   = zhist;
+                super_args{9}   = thist;
+                super_args{10}  = Q;
+                super_args{11}  = R;
+                super_args{12}  = varargin;
             end
             % batchFilter superclass constructor
             SRIFobj@batchFilter(super_args{:});
@@ -104,7 +105,7 @@ classdef batch_SRIF < batchFilter
         end
         
         % This method initializes the SRIF class filter
-        function [SRIFobj,xhatk,Pk,tk,vk] = initFilter(SRIFobj)
+        function [SRIFobj,xhatk,tk,vk] = initFilter(SRIFobj)
             % Setup the output arrays
             SRIFobj.xhathist     = zeros(SRIFobj.nx,SRIFobj.kmax+1);
             SRIFobj.Phist        = zeros(SRIFobj.nx,SRIFobj.nx,SRIFobj.kmax+1);
@@ -112,18 +113,22 @@ classdef batch_SRIF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-            xhatk                   = SRIFobj.xhatInit;
-            Pk                      = SRIFobj.PInit;
-            SRIFobj.xhathist(:,1)    = SRIFobj.xhatInit;
-            SRIFobj.Phist(:,:,1)     = SRIFobj.PInit;
-            tk                      = 0;
-            vk                      = zeros(SRIFobj.nv,1);
+            xhatk                                  = SRIFobj.xhatInit;
+            SRIFobj.xhathist(:,SRIFobj.kInit+1)    = SRIFobj.xhatInit;
+            SRIFobj.Phist(:,:,SRIFobj.kInit+1)     = SRIFobj.PInit;
+            vk                                     = zeros(SRIFobj.nv,1);
+            % Make sure correct initial tk is used.
+            if SRIFobj.kInit == 0
+                tk = 0;
+            else
+                tk = SRIFobj.thist(SRIFobj.kInit);
+            end
         end
         
         % This method performs SRIF class filter estimation
         function SRIFobj = doFilter(SRIFobj)
             % Filter initialization method
-            [SRIFobj,xhatk,~,tk,vk] = initFilter(SRIFobj);
+            [SRIFobj,xhatk,tk,vk] = initFilter(SRIFobj);
             
             % Determine the square-root information matrix for the process 
             % noise, and transform the measurements to have an error with 
@@ -138,14 +143,15 @@ classdef batch_SRIF < batchFilter
             SRIFobj.Rxxk = inv(chol(SRIFobj.PInit)');
             
             % Main filter loop.
-            for k = 0:(SRIFobj.kmax-1)
+            for k = SRIFobj.kInit:(SRIFobj.kmax-1)
                 % Prepare loop
                 kp1 = k+1;
                 tkp1 = SRIFobj.thist(kp1);
+                uk = SRIFobj.uhist(kp1,:)';
                 
                 % Perform dynamic propagation and measurement update
                 [xbarkp1,zetabarxkp1,Rbarxxkp1] = ...
-                    dynamicProp(SRIFobj,xhatk,vk,tk,tkp1,k);
+                    dynamicProp(SRIFobj,xhatk,uk,vk,tk,tkp1,k);
                 [zetaxkp1,Rxxkp1,zetarkp1] = ...
                     measUpdate(SRIFobj,xbarkp1,zetabarxkp1,Rbarxxkp1,kp1);
                 
@@ -167,12 +173,12 @@ classdef batch_SRIF < batchFilter
         end
         
         % Dynamic propagation method, from sample k to sample k+1.
-        function [xbarkp1,zetabarxkp1,Rbarxxkp1] = dynamicProp(SRIFobj,xhatk,vk,tk,tkp1,k)
+        function [xbarkp1,zetabarxkp1,Rbarxxkp1] = dynamicProp(SRIFobj,xhatk,uk,vk,tk,tkp1,k)
             % Check model types and get sample k a priori state estimate.
             if strcmp(SRIFobj.modelFlag,'CD')
-                [xbarkp1,F,Gamma] = c2dnonlinear(xhatk,SRIFobj.uhist(k+1,:)',vk,tk,tkp1,SRIFobj.nRK,SRIFobj.fmodel,1);
+                [xbarkp1,F,Gamma] = c2dnonlinear(xhatk,uk,vk,tk,tkp1,SRIFobj.nRK,SRIFobj.fmodel,1);
             elseif strcmp(SRIFobj.modelFlag,'DD')
-                [xbarkp1,F,Gamma] = feval(SRIFobj.fmodel,xhatk,SRIFobj.uhist(k+1,:)',vk,k);
+                [xbarkp1,F,Gamma] = feval(SRIFobj.fmodel,xhatk,uk,vk,k);
             else
                 error('Incorrect flag for the dynamics-measurement models')
             end
@@ -193,7 +199,7 @@ classdef batch_SRIF < batchFilter
         % Measurement update method at sample k+1.
         function [zetaxkp1,Rxxkp1,zetarkp1] = measUpdate(SRIFobj,xbarkp1,zetabarxkp1,Rbarxxkp1,kp1)
             % Linearized at sample k+1 a priori state estimate.
-            [zbarkp1,H] = feval(SRIFobj.hmodel,xbarkp1,1);
+            [zbarkp1,H] = feval(SRIFobj.hmodel,xbarkp1,kp1,1);
             % Transform ith H(k) matrix and non-homogeneous measurement terms
             Ha = SRIFobj.Rainvtr*H;
             zEKF = SRIFobj.zahist(kp1,:)' - SRIFobj.Rainvtr*zbarkp1 + Ha*xbarkp1;

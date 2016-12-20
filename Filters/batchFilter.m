@@ -13,8 +13,7 @@
 %
 % # Add option for variable Q and R?
 % # Demystify beginning sample/tk = 0 problem (kinit maybe?)
-% # Get rid of inv( ) warnings
-% # Add continuous measurement model functionality?
+% # Add continuous measurement model functionality?? (maybe not?)
 
 %% Abstract Filter Class Definition
 classdef (Abstract) batchFilter
@@ -48,29 +47,34 @@ classdef (Abstract) batchFilter
                     % discrete-time models via the c2dnonlinear 
                     % function.
                     
-       xhatInit     % (nx)x1 vector:
+       kInit        % Scalar Integer:
+                    %
+                    % Initial sample to begin filtering. This is depends on
+                    % the initial xhat and P.
+                    
+       xhatInit     % (nx)x1 Vector:
                     %
                     % Initial a posteriori state estimate.
        
-       PInit        % (nx)x(nx) matrix:
+       PInit        % (nx)x(nx) Matrix:
                     %
                     % Initial a posteriori error covariance matrix.
        
-       uhist        % (kmax)x(nu) array:
+       uhist        % (kmax)x(nu) Array:
                     % 
                     % Control state time-history from sample k=1 to 
                     % sample k=kmax. This is assumed to be known and
                     % deterministic. This input can be an empty 
                     % array if there are no control inputs.
        
-       zhist        % (kmax)x(nz) array:
+       zhist        % (kmax)x(nz) Array:
                     %
                     % Measurement state time-history from sample k=1 
                     % to sample k=kmax. These are the actual 
                     % measurements taken by the system, supplied by 
                     % the user.
        
-       thist        % (kmax)x1 vector:
+       thist        % (kmax)x1 Vector:
                     %
                     % Time vector defining the discrete times for each
                     % sample from sample k=1 to sample k=kmax. This is
@@ -79,17 +83,17 @@ classdef (Abstract) batchFilter
                     % empty array if there is no need for defining the 
                     % times of each sample.
        
-       Q            % (nv)x(nv) matrix:
+       Q            % (nv)x(nv) Matrix:
                     % 
                     % Symmetric, positive definite process noise 
                     % covariance matrix. Assumed constant for all k.
        
-       R            % (nz)x(nz) matrix:
+       R            % (nz)x(nz) Matrix:
                     % 
                     % Symmetric, positive definite measurement noise 
                     % covariance matrix. Assumed constant for all k.
                     
-       optArgs      % cell array:
+       optArgs      % Cell Array:
                     %
                     % Extra/optional arguments for each filter class.
    end
@@ -99,16 +103,16 @@ classdef (Abstract) batchFilter
 % calculate and store as outputs of their algorithm. More may be added.
    properties
 
-       xhathist     % (nx)x(kmax+1) array:
+       xhathist     % (nx)x(kmax+1) Array:
                     % 
                     % A posteriori state estimate time-history.
        
-       Phist        % (nx)x(nx)x(kmax+1) array:
+       Phist        % (nx)x(nx)x(kmax+1) Array:
                     %
                     % A posteriori error covariance matrix 
                     % time-history.
        
-       eta_nuhist   % (kmax)x1 vector:
+       eta_nuhist   % (kmax)x1 Vector:
                     % 
                     % Innovation statistics time-history.
    end
@@ -128,13 +132,14 @@ classdef (Abstract) batchFilter
 % This method is the default constructor for all batchFilter subclasses
    methods (Access = protected)
        % Batch Filter constructor
-       function Filterobj = batchFilter(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,optArgs)
+       function Filterobj = batchFilter(fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R,optArgs)
            % Check inputs
-           inputsCheck(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R);
+           inputsCheck(fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R);
            % Assign inputs to Filter Object properties
            Filterobj.fmodel    = fmodel;
            Filterobj.hmodel    = hmodel;
            Filterobj.modelFlag = modelFlag;
+           Filterobj.kInit     = kInit;
            Filterobj.xhatInit  = xhatInit;
            Filterobj.PInit     = PInit;
            % Assigns zero vector if uhist is empty
@@ -209,7 +214,7 @@ end
 
 %% Helper Function
 % This helper function checks that the inputs are the right type and size
-function inputsCheck(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R)
+function inputsCheck(fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R)
 
 % Get problem dimensions for easier checking
 Nx = size(xhatInit,1);
@@ -223,6 +228,9 @@ assert((~isempty(fmodel) && isa(fmodel,'char')),...
 assert((~isempty(hmodel) && isa(hmodel,'char')),...
     'batchfilter:instantiation',...
     'User must supply filter with a function name for the measurement model')
+assert((~isempty(kInit) && kInit >=0),...
+    'batchfilter:instantiation',...
+    'User must supply filter with an initial sample integer larger than 1')
 assert((~isempty(xhatInit) && ~isempty(PInit)),...
     'batchfilter:instantiation',...
     'User must supply filter with an initial a posteriori state estimate and error covariance')

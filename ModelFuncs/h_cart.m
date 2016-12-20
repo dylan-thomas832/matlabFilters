@@ -1,4 +1,4 @@
-function [h,dh_dx] = h_cart(x,idervflag)
+function [h,dh_dx] = h_cart(xkp1,kp1,idervflag)
 %
 %  Copyright (c) 2002 Mark L. Psiaki.  All rights reserved.  
 %
@@ -41,9 +41,9 @@ function [h,dh_dx] = h_cart(x,idervflag)
 %
 %  Determine the cart position relative to the two radar.
 %
-   dely1a = lradara - x(2,1);
-   dely1b = lradarb - x(2,1);
-   dely2 = x(3,1);
+   dely1a = lradara - xkp1(2,1);
+   dely1b = lradarb - xkp1(2,1);
+   dely2 = xkp1(3,1);
 %
 %  Compute the h output.
 %

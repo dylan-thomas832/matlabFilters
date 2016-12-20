@@ -1,4 +1,4 @@
-%% EKF Tricycle Estimation
+%% PF Tricycle Estimation
 
 %% Housekeeping
 clearvars; close all; clc;
@@ -34,8 +34,8 @@ meanspeed = 2.1; % m/s
 Rk = diag([sig_rhoa^2 sig_rhob^2]);
 Qk = diag([qtilsteer qtilspeed])/(thist(2)-thist(1));
 
-kInit = 1;
 % Initialization
+kInit = 1;
 [xguess,Pguess] = cartInit(kInit,zhist,thist);
 
 %% Filter setup
@@ -45,22 +45,22 @@ ffunc = 'f_cart';
 hfunc = 'h_cart';
 
 % Runge-Kutta iterations
-nRK = 20;
+nRK = 10;
 
 % Control vector
 uk = zeros(length(thist),1);
 
-ekf = batch_EKF(ffunc,hfunc,'CD',kInit,xguess,Pguess,uk,zhist,thist,Qk,Rk,nRK);
-ekf = ekf.doFilter();
+pf = batch_RegPF(ffunc,hfunc,'CD',kInit,xguess,Pguess,uk,zhist,thist,Qk,Rk,nRK,500,100,1);
+pf = pf.doFilter();
 
 %% Results
 hold on
-plot(ekf.xhathist(2,(kInit+1:end)),ekf.xhathist(3,(kInit+1:end)))
+plot(pf.xhathist(2,(kInit+1:end)),pf.xhathist(3,(kInit+1:end)))
 grid on
 xlim([-3 2])
 ylim([1 6])
 
-mean_eta = mean(ekf.eta_nuhist(kInit+2:end))
-Nk = length(thist)-kInit;
-r1 = chi2inv(0.05/2,size(zhist,2)*Nk)/Nk
-r2 = chi2inv(1-0.05/2,size(zhist,2)*Nk)/Nk
+% mean_eta = mean(pf.eta_nuhist)
+% Nk = length(thist);
+% r1 = chi2inv(0.05/2,size(zhist,2)*Nk)/Nk
+% r2 = chi2inv(1-0.05/2,size(zhist,2)*Nk)/Nk

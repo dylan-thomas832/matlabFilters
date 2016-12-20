@@ -29,24 +29,25 @@ classdef batch_EKF < batchFilter
 %% EKF Methods
     methods
         % EKF constructor
-        function EKFobj = batch_EKF(fmodel,hmodel,modelFlag,xhat0,P0,uhist,zhist,thist,Q,R,varargin)
+        function EKFobj = batch_EKF(fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
             % Prepare for superclass constructor
             if nargin == 0
-                super_args = cell(1,11);
-            elseif nargin < 10
+                super_args = cell(1,12);
+            elseif nargin < 11
                 error('Not enough input arguments')
             else
                 super_args{1}   = fmodel;
                 super_args{2}   = hmodel;
                 super_args{3}   = modelFlag;
-                super_args{4}   = xhat0;
-                super_args{5}   = P0;
-                super_args{6}   = uhist;
-                super_args{7}   = zhist;
-                super_args{8}   = thist;
-                super_args{9}   = Q;
-                super_args{10}  = R;
-                super_args{11}  = varargin;
+                super_args{4}   = kInit;
+                super_args{5}   = xhatInit;
+                super_args{6}   = PInit;
+                super_args{7}   = uhist;
+                super_args{8}   = zhist;
+                super_args{9}   = thist;
+                super_args{10}  = Q;
+                super_args{11}  = R;
+                super_args{12}  = varargin;
             end
             % batchFilter superclass constructor
             EKFobj@batchFilter(super_args{:});
@@ -80,12 +81,17 @@ classdef batch_EKF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-            xhatk                   = EKFobj.xhatInit;
-            Pk                      = EKFobj.PInit;
-            EKFobj.xhathist(:,1)    = EKFobj.xhatInit;
-            EKFobj.Phist(:,:,1)     = EKFobj.PInit;
-            tk                      = 0;
-            vk                      = zeros(EKFobj.nv,1);
+            xhatk                                = EKFobj.xhatInit;
+            Pk                                   = EKFobj.PInit;
+            EKFobj.xhathist(:,EKFobj.kInit+1)    = EKFobj.xhatInit;
+            EKFobj.Phist(:,:,EKFobj.kInit+1)     = EKFobj.PInit;
+            vk                                   = zeros(EKFobj.nv,1);
+            % Make sure correct initial tk is used.
+            if EKFobj.kInit == 0
+                tk = 0;
+            else
+                tk = EKFobj.thist(EKFobj.kInit);
+            end
         end
         
         % This method performs EKF class filter estimation
@@ -94,13 +100,14 @@ classdef batch_EKF < batchFilter
             [EKFobj,xhatk,Pk,tk,vk] = initFilter(EKFobj);
             
             % Main filter loop.
-            for k = 0:(EKFobj.kmax-1)
+            for k = EKFobj.kInit:(EKFobj.kmax-1)
                 % Prepare loop
                 kp1 = k+1;
                 tkp1 = EKFobj.thist(kp1);
+                uk = EKFobj.uhist(kp1,:)';
                 
                 % Perform dynamic propagation and measurement update
-                [xbarkp1,Pbarkp1] = dynamicProp(EKFobj,xhatk,Pk,vk,tk,tkp1,k);
+                [xbarkp1,Pbarkp1] = dynamicProp(EKFobj,xhatk,Pk,uk,vk,tk,tkp1,k);
                 [xhatkp1,Pkp1,eta_nukp1] = measUpdate(EKFobj,xbarkp1,Pbarkp1,kp1);
                 
                 % Store results
@@ -116,12 +123,12 @@ classdef batch_EKF < batchFilter
         end
         
         % Dynamic propagation method, from sample k to sample k+1.
-        function [xbarkp1,Pbarkp1] = dynamicProp(EKFobj,xhatk,Pk,vk,tk,tkp1,k)
+        function [xbarkp1,Pbarkp1] = dynamicProp(EKFobj,xhatk,Pk,uk,vk,tk,tkp1,k)
             % Check model types and get sample k a priori state estimate.
             if strcmp(EKFobj.modelFlag,'CD')
-                [xbarkp1,F,Gamma] = c2dnonlinear(xhatk,EKFobj.uhist(k+1,:)',vk,tk,tkp1,EKFobj.nRK,EKFobj.fmodel,1);
+                [xbarkp1,F,Gamma] = c2dnonlinear(xhatk,uk,vk,tk,tkp1,EKFobj.nRK,EKFobj.fmodel,1);
             elseif strcmp(EKFobj.modelFlag,'DD')
-                [xbarkp1,F,Gamma] = feval(EKFobj.fmodel,xhatk,EKFobj.uhist(k+1,:)',vk,k);
+                [xbarkp1,F,Gamma] = feval(EKFobj.fmodel,xhatk,uk,vk,k);
             else
                 error('Incorrect flag for the dynamics-measurement models')
             end
@@ -132,7 +139,7 @@ classdef batch_EKF < batchFilter
         % Measurement update method at sample k+1.
         function [xhatkp1,Pkp1,eta_nukp1] = measUpdate(EKFobj,xbarkp1,Pbarkp1,kp1)
             % Linearized at sample k+1 a priori state estimate.
-            [zbarkp1,H] = feval(EKFobj.hmodel,xbarkp1,1);
+            [zbarkp1,H] = feval(EKFobj.hmodel,xbarkp1,kp1,1);
             zkp1 = EKFobj.zhist(kp1,:)';
             % Innovations, innovation covariance, and filter gain.
             nukp1 = zkp1 - zbarkp1;

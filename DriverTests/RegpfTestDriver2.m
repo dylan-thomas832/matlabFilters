@@ -29,7 +29,7 @@ uhist = zeros(size(zkhist));
 thist = uhist;
 
 kInit = 0;
-pf = batch_PF(ffunc,hfunc,'DD',kInit,xhat0,P0,uhist,zkhist,thist,Q,R,nRK,Np,1);
+pf = batch_RegPF(ffunc,hfunc,'DD',kInit,xhat0,P0,uhist,zkhist,thist,Q,R,nRK,Np,200,1);
 pf = pf.doFilter();
 
 %% Results

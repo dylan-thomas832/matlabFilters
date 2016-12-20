@@ -41,24 +41,25 @@ classdef batch_PF < batchFilter
 %% PF Methods
     methods
         % PF constructor
-        function PFobj = batch_PF(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
+        function PFobj = batch_PF(fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
             % Prepare for superclass constructor
             if nargin == 0
-                super_args = cell(1,11);
-            elseif nargin < 10
+                super_args = cell(1,12);
+            elseif nargin < 11
                 error('Not enough input arguments')
             else
                 super_args{1}   = fmodel;
                 super_args{2}   = hmodel;
                 super_args{3}   = modelFlag;
-                super_args{4}   = xhatInit;
-                super_args{5}   = PInit;
-                super_args{6}   = uhist;
-                super_args{7}   = zhist;
-                super_args{8}   = thist;
-                super_args{9}   = Q;
-                super_args{10}  = R;
-                super_args{11}  = varargin;
+                super_args{4}   = kInit;
+                super_args{5}   = xhatInit;
+                super_args{6}   = PInit;
+                super_args{7}   = uhist;
+                super_args{8}   = zhist;
+                super_args{9}   = thist;
+                super_args{10}  = Q;
+                super_args{11}  = R;
+                super_args{12}  = varargin;
             end
             % batchFilter superclass constructor
             PFobj@batchFilter(super_args{:});
@@ -107,12 +108,14 @@ classdef batch_PF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-%             xhatk                   = PFobj.xhatInit;
-%             Pk                      = PFobj.PInit;
-            PFobj.xhathist(:,1)     = PFobj.xhatInit;
-            PFobj.Phist(:,:,1)      = PFobj.PInit;
-            tk                      = 0;
-%             vk                      = zeros(PFobj.nv,1);
+            PFobj.xhathist(:,PFobj.kInit+1)     = PFobj.xhatInit;
+            PFobj.Phist(:,:,PFobj.kInit+1)      = PFobj.PInit;
+            % Make sure correct initial tk is used.
+            if PFobj.kInit == 0
+                tk = 0;
+            else
+                tk = PFobj.thist(PFobj.kInit);
+            end
             % Generate Ns samples of Xi0 from N[x(k);xhatInit,PInit] and weights
             Xikp1 = PFobj.xhatInit*ones(1,PFobj.Np) + chol(PFobj.PInit)'*randn(PFobj.nx,PFobj.Np);
             Wkp1 = ones(1,PFobj.Np)*(1/PFobj.Np);
@@ -124,7 +127,7 @@ classdef batch_PF < batchFilter
             [PFobj,tk,Xikp1,Wkp1] = initFilter(PFobj);
             
             % Main filter loop.
-            for k = 0:(PFobj.kmax-1)
+            for k = PFobj.kInit:(PFobj.kmax-1)
                 Xik = Xikp1;
                 Wk = Wkp1;
                 logWk = log(Wk);
@@ -146,7 +149,7 @@ classdef batch_PF < batchFilter
                     xkp1_ii = dynamicProp(PFobj,xk_ii,uk,vk,tk,tkp1,k);
 %                     Xikp1(:,ii) = fmodel(Xik(:,ii),uhist(kp1,:)',vik(:,ii),k);
                     %  TODO: FIX!!!
-                    [zkp1_ii,~] = feval(PFobj.hmodel,xkp1_ii,0);
+                    [zkp1_ii,~] = feval(PFobj.hmodel,xkp1_ii,kp1,0);
                     % Dummy calc for debug
 %                     zdum = zhist(kp1,:)'-hmodel(Xikp1(:,ii),k+1);
                     % Calculate the current particle's log-weight

@@ -35,7 +35,8 @@ Rk = diag([sig_rhoa^2 sig_rhob^2]);
 Qk = diag([qtilsteer qtilspeed])/(thist(2)-thist(1));
 
 % Initialization
-[xguess,Pguess] = cartInit0(zhist,thist);
+kInit = 1;
+[xguess,Pguess] = cartInit(kInit,zhist,thist);
 
 %% Filter setup
 
@@ -44,17 +45,17 @@ ffunc = 'f_cart';
 hfunc = 'h_cart';
 
 % Runge-Kutta iterations
-nRK = 20;
+nRK = 10;
 
 % Control vector
 uk = zeros(length(thist),1);
 
-ukf = batch_UKF(ffunc,hfunc,'CD',xguess,Pguess,uk,zhist,thist,Qk,Rk,nRK);
+ukf = batch_UKF(ffunc,hfunc,'CD',kInit,xguess,Pguess,uk,zhist,thist,Qk,Rk,nRK);
 ukf = ukf.doFilter();
 
 %% Results
 hold on
-plot(ukf.xhathist(2,:),ukf.xhathist(3,:))
+plot(ukf.xhathist(2,(kInit+1:end)),ukf.xhathist(3,(kInit+1:end)))
 grid on
 xlim([-3 2])
 ylim([1 6])

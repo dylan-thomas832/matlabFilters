@@ -1,4 +1,4 @@
-function [hk,dhkdxk] = h_ps8prob4(xk,idervflag)
+function [hk,dhkdxk] = h_ps8prob4(xk,kp1,idervflag)
 
 % This function models the measurements of the first filtering example:
 % 

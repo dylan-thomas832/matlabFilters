@@ -61,24 +61,25 @@ classdef batch_iESRIF < batchFilter
 %% iESRIF Methods
     methods
         % iESRIF constructor
-        function iESRIFobj = batch_iESRIF(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
+        function iESRIFobj = batch_iESRIF(fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
             % Prepare for superclass constructor
             if nargin == 0
-                super_args = cell(1,11);
-            elseif nargin < 10
+                super_args = cell(1,12);
+            elseif nargin < 11
                 error('Not enough input arguments')
             else
                 super_args{1}   = fmodel;
                 super_args{2}   = hmodel;
                 super_args{3}   = modelFlag;
-                super_args{4}   = xhatInit;
-                super_args{5}   = PInit;
-                super_args{6}   = uhist;
-                super_args{7}   = zhist;
-                super_args{8}   = thist;
-                super_args{9}   = Q;
-                super_args{10}  = R;
-                super_args{11}  = varargin;
+                super_args{4}   = kInit;
+                super_args{5}   = xhatInit;
+                super_args{6}   = PInit;
+                super_args{7}   = uhist;
+                super_args{8}   = zhist;
+                super_args{9}   = thist;
+                super_args{10}  = Q;
+                super_args{11}  = R;
+                super_args{12}  = varargin;
             end
             % batchFilter superclass constructor
             iESRIFobj@batchFilter(super_args{:});
@@ -89,7 +90,7 @@ classdef batch_iESRIF < batchFilter
         % This method checks the extra input arguments for iESRIF class
         function iESRIFobj = argumentsCheck(iESRIFobj)
             % Switch on number of extra arguments.
-            switch length(iSERIFobj.optArgs)
+            switch length(iESRIFobj.optArgs)
                 case 0
                     iESRIFobj.nRK = 20;
                 case 1
@@ -104,7 +105,7 @@ classdef batch_iESRIF < batchFilter
         end
         
         % This method initializes the iESRIF class filter
-        function [iESRIFobj,xhatk,Pk,tk,vk] = initFilter(iESRIFobj)
+        function [iESRIFobj,xhatk,tk,vk] = initFilter(iESRIFobj)
             % Setup the output arrays
             iESRIFobj.xhathist     = zeros(iESRIFobj.nx,iESRIFobj.kmax+1);
             iESRIFobj.Phist        = zeros(iESRIFobj.nx,iESRIFobj.nx,iESRIFobj.kmax+1);
@@ -112,18 +113,22 @@ classdef batch_iESRIF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-            xhatk                   = iESRIFobj.xhatInit;
-            Pk                      = iESRIFobj.PInit;
-            iESRIFobj.xhathist(:,1)    = iESRIFobj.xhatInit;
-            iESRIFobj.Phist(:,:,1)     = iESRIFobj.PInit;
-            tk                      = 0;
-            vk                      = zeros(iESRIFobj.nv,1);
+            xhatk                                      = iESRIFobj.xhatInit;
+            iESRIFobj.xhathist(:,iESRIFobj.kInit+1)    = iESRIFobj.xhatInit;
+            iESRIFobj.Phist(:,:,iESRIFobj.kInit+1)     = iESRIFobj.PInit;
+            vk                                         = zeros(iESRIFobj.nv,1);
+            % Make sure correct initial tk is used.
+            if iESRIFobj.kInit == 0
+                tk = 0;
+            else
+                tk = iESRIFobj.thist(iESRIFobj.kInit);
+            end
         end
         
         % This method performs iESRIF class filter estimation
         function iESRIFobj = doFilter(iESRIFobj)
             % Filter initialization method
-            [iESRIFobj,xhatk,~,tk,vk] = initFilter(iESRIFobj);
+            [iESRIFobj,xhatk,tk,vk] = initFilter(iESRIFobj);
             
             % Determine the square-root information matrix for the process 
             % noise, and transform the measurements to have an error with 
@@ -138,14 +143,15 @@ classdef batch_iESRIF < batchFilter
             iESRIFobj.Rxxk = inv(chol(iESRIFobj.PInit)');
             
             % Main filter loop.
-            for k = 0:(iESRIFobj.kmax-1)
+            for k = iESRIFobj.kInit:(iESRIFobj.kmax-1)
                 % Prepare loop
                 kp1 = k+1;
                 tkp1 = iESRIFobj.thist(kp1);
+                uk = iESRIFobj.uhist(kp1,:)';
                 
                 % Perform dynamic propagation and measurement update
                 [xbarkp1,zetabarxkp1,Rbarxxkp1] = ...
-                    dynamicProp(iESRIFobj,xhatk,vk,tk,tkp1,k);
+                    dynamicProp(iESRIFobj,xhatk,uk,vk,tk,tkp1,k);
                 [zetaxkp1,Rxxkp1,zetarkp1] = ...
                     measUpdate(iESRIFobj,xbarkp1,zetabarxkp1,Rbarxxkp1,kp1);
                 
@@ -167,12 +173,12 @@ classdef batch_iESRIF < batchFilter
         end
         
         % Dynamic propagation method, from sample k to sample k+1.
-        function [xbarkp1,zetabarxkp1,Rbarxxkp1] = dynamicProp(iESRIFobj,xhatk,vk,tk,tkp1,k)
+        function [xbarkp1,zetabarxkp1,Rbarxxkp1] = dynamicProp(iESRIFobj,xhatk,uk,vk,tk,tkp1,k)
             % Check model types and get sample k a priori state estimate.
             if strcmp(iESRIFobj.modelFlag,'CD')
-                [xbarkp1,F,Gamma] = c2dnonlinear(xhatk,iESRIFobj.uhist(k+1,:)',vk,tk,tkp1,iESRIFobj.nRK,iESRIFobj.fmodel,1);
+                [xbarkp1,F,Gamma] = c2dnonlinear(xhatk,uk,vk,tk,tkp1,iESRIFobj.nRK,iESRIFobj.fmodel,1);
             elseif strcmp(iESRIFobj.modelFlag,'DD')
-                [xbarkp1,F,Gamma] = feval(iESRIFobj.fmodel,xhatk,iESRIFobj.uhist(k+1,:)',vk,k);
+                [xbarkp1,F,Gamma] = feval(iESRIFobj.fmodel,xhatk,uk,vk,k);
             else
                 error('Incorrect flag for the dynamics-measurement models')
             end
@@ -193,7 +199,7 @@ classdef batch_iESRIF < batchFilter
         % Measurement update method at sample k+1.
         function [zetaxkp1,Rxxkp1,zetarkp1] = measUpdate(iESRIFobj,xbarkp1,zetabarxkp1,Rbarxxkp1,kp1)
             % Linearized at sample k+1 a priori state estimate.
-            [zbarkp1,H] = feval(iESRIFobj.hmodel,xbarkp1,1);
+            [zbarkp1,H] = feval(iESRIFobj.hmodel,xbarkp1,kp1,1);
             % Transform ith H(k) matrix and non-homogeneous measurement terms
             Ha = iESRIFobj.Rainvtr*H;
             zEKF = iESRIFobj.zahist(kp1,:)' - iESRIFobj.Rainvtr*zbarkp1 + Ha*xbarkp1;

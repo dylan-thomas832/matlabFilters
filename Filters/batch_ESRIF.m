@@ -61,24 +61,25 @@ classdef batch_ESRIF < batchFilter
 %% ESRIF Methods
     methods
         % ESRIF constructor
-        function ESRIFobj = batch_ESRIF(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
+        function ESRIFobj = batch_ESRIF(fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
             % Prepare for superclass constructor
             if nargin == 0
-                super_args = cell(1,11);
-            elseif nargin < 10
+                super_args = cell(1,12);
+            elseif nargin < 11
                 error('Not enough input arguments')
             else
                 super_args{1}   = fmodel;
                 super_args{2}   = hmodel;
                 super_args{3}   = modelFlag;
-                super_args{4}   = xhatInit;
-                super_args{5}   = PInit;
-                super_args{6}   = uhist;
-                super_args{7}   = zhist;
-                super_args{8}   = thist;
-                super_args{9}   = Q;
-                super_args{10}  = R;
-                super_args{11}  = varargin;
+                super_args{4}   = kInit;
+                super_args{5}   = xhatInit;
+                super_args{6}   = PInit;
+                super_args{7}   = uhist;
+                super_args{8}   = zhist;
+                super_args{9}   = thist;
+                super_args{10}  = Q;
+                super_args{11}  = R;
+                super_args{12}  = varargin;
             end
             % batchFilter superclass constructor
             ESRIFobj@batchFilter(super_args{:});
@@ -104,7 +105,7 @@ classdef batch_ESRIF < batchFilter
         end
         
         % This method initializes the ESRIF class filter
-        function [ESRIFobj,xhatk,Pk,tk,vk] = initFilter(ESRIFobj)
+        function [ESRIFobj,xhatk,tk,vk] = initFilter(ESRIFobj)
             % Setup the output arrays
             ESRIFobj.xhathist     = zeros(ESRIFobj.nx,ESRIFobj.kmax+1);
             ESRIFobj.Phist        = zeros(ESRIFobj.nx,ESRIFobj.nx,ESRIFobj.kmax+1);
@@ -112,18 +113,22 @@ classdef batch_ESRIF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-            xhatk                   = ESRIFobj.xhatInit;
-            Pk                      = ESRIFobj.PInit;
-            ESRIFobj.xhathist(:,1)    = ESRIFobj.xhatInit;
-            ESRIFobj.Phist(:,:,1)     = ESRIFobj.PInit;
-            tk                      = 0;
-            vk                      = zeros(ESRIFobj.nv,1);
+            xhatk                                    = ESRIFobj.xhatInit;
+            ESRIFobj.xhathist(:,ESRIFobj.kInit+1)    = ESRIFobj.xhatInit;
+            ESRIFobj.Phist(:,:,ESRIFobj.kInit+1)     = ESRIFobj.PInit;
+            vk                                       = zeros(ESRIFobj.nv,1);
+            % Make sure correct initial tk is used.
+            if ESRIFobj.kInit == 0
+                tk = 0;
+            else
+                tk = ESRIFobj.thist(ESRIFobj.kInit);
+            end
         end
         
         % This method performs ESRIF class filter estimation
         function ESRIFobj = doFilter(ESRIFobj)
             % Filter initialization method
-            [ESRIFobj,xhatk,~,tk,vk] = initFilter(ESRIFobj);
+            [ESRIFobj,xhatk,tk,vk] = initFilter(ESRIFobj);
             
             % Determine the square-root information matrix for the process 
             % noise, and transform the measurements to have an error with 
@@ -138,14 +143,15 @@ classdef batch_ESRIF < batchFilter
             ESRIFobj.Rxxk = inv(chol(ESRIFobj.PInit)');
             
             % Main filter loop.
-            for k = 0:(ESRIFobj.kmax-1)
+            for k = ESRIFobj.kInit:(ESRIFobj.kmax-1)
                 % Prepare loop
                 kp1 = k+1;
                 tkp1 = ESRIFobj.thist(kp1);
+                uk = ESRIFobj.uhist(kp1,:)';
                 
                 % Perform dynamic propagation and measurement update
                 [xbarkp1,zetabarxkp1,Rbarxxkp1] = ...
-                    dynamicProp(ESRIFobj,xhatk,vk,tk,tkp1,k);
+                    dynamicProp(ESRIFobj,xhatk,uk,vk,tk,tkp1,k);
                 [zetaxkp1,Rxxkp1,zetarkp1] = ...
                     measUpdate(ESRIFobj,xbarkp1,zetabarxkp1,Rbarxxkp1,kp1);
                 
@@ -167,12 +173,12 @@ classdef batch_ESRIF < batchFilter
         end
         
         % Dynamic propagation method, from sample k to sample k+1.
-        function [xbarkp1,zetabarxkp1,Rbarxxkp1] = dynamicProp(ESRIFobj,xhatk,vk,tk,tkp1,k)
+        function [xbarkp1,zetabarxkp1,Rbarxxkp1] = dynamicProp(ESRIFobj,xhatk,uk,vk,tk,tkp1,k)
             % Check model types and get sample k a priori state estimate.
             if strcmp(ESRIFobj.modelFlag,'CD')
-                [xbarkp1,F,Gamma] = c2dnonlinear(xhatk,ESRIFobj.uhist(k+1,:)',vk,tk,tkp1,ESRIFobj.nRK,ESRIFobj.fmodel,1);
+                [xbarkp1,F,Gamma] = c2dnonlinear(xhatk,uk,vk,tk,tkp1,ESRIFobj.nRK,ESRIFobj.fmodel,1);
             elseif strcmp(ESRIFobj.modelFlag,'DD')
-                [xbarkp1,F,Gamma] = feval(ESRIFobj.fmodel,xhatk,ESRIFobj.uhist(k+1,:)',vk,k);
+                [xbarkp1,F,Gamma] = feval(ESRIFobj.fmodel,xhatk,uk,vk,k);
             else
                 error('Incorrect flag for the dynamics-measurement models')
             end
@@ -193,7 +199,7 @@ classdef batch_ESRIF < batchFilter
         % Measurement update method at sample k+1.
         function [zetaxkp1,Rxxkp1,zetarkp1] = measUpdate(ESRIFobj,xbarkp1,zetabarxkp1,Rbarxxkp1,kp1)
             % Linearized at sample k+1 a priori state estimate.
-            [zbarkp1,H] = feval(ESRIFobj.hmodel,xbarkp1,1);
+            [zbarkp1,H] = feval(ESRIFobj.hmodel,xbarkp1,kp1,1);
             % Transform ith H(k) matrix and non-homogeneous measurement terms
             Ha = ESRIFobj.Rainvtr*H;
             zEKF = ESRIFobj.zahist(kp1,:)' - ESRIFobj.Rainvtr*zbarkp1 + Ha*xbarkp1;

@@ -37,7 +37,8 @@ Rk = diag([sig_rhoa^2 sig_rhob^2]);
 Qk = diag([qtilsteer qtilspeed])/(thist(2)-thist(1));
 
 % Initialization
-[xguess,Pguess] = cartInit0(zhist,thist);
+kInit = 1;
+[xguess,Pguess] = cartInit(kInit,zhist,thist);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Filter setup
@@ -52,18 +53,18 @@ nRK = 100;
 % Control vector
 uk = zeros(length(thist),1);
 
-esrif = batch_ESRIF(ffunc,hfunc,'CD',xguess,Pguess,uk,zhist,thist,Qk,Rk,nRK);
+esrif = batch_ESRIF(ffunc,hfunc,'CD',kInit,xguess,Pguess,uk,zhist,thist,Qk,Rk,nRK);
 esrif = esrif.doFilter();
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Results
 hold on
-plot(esrif.xhathist(2,:),esrif.xhathist(3,:))
+plot(esrif.xhathist(2,(kInit+1:end)),esrif.xhathist(3,(kInit+1:end)))
 grid on
 xlim([-3 2])
 ylim([1 6])
 
-mean_eta = mean(esrif.eta_nuhist)
-Nk = length(thist);
+mean_eta = mean(esrif.eta_nuhist(kInit+2:end))
+Nk = length(thist)-kInit;
 r1 = chi2inv(0.05/2,size(zhist,2)*Nk)/Nk
 r2 = chi2inv(1-0.05/2,size(zhist,2)*Nk)/Nk

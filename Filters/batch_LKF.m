@@ -31,24 +31,25 @@ classdef batch_LKF < batchFilter
 %% LKF Methods
     methods
         % LKF constructor
-        function LKFobj = batch_LKF(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
+        function LKFobj = batch_LKF(fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
             % Prepare for superclass constructor
             if nargin == 0
-                super_args = cell(1,11);
-            elseif nargin < 10
+                super_args = cell(1,12);
+            elseif nargin < 11
                 error('Not enough input arguments')
             else
                 super_args{1}   = fmodel;
                 super_args{2}   = hmodel;
                 super_args{3}   = modelFlag;
-                super_args{4}   = xhatInit;
-                super_args{5}   = PInit;
-                super_args{6}   = uhist;
-                super_args{7}   = zhist;
-                super_args{8}   = thist;
-                super_args{9}   = Q;
-                super_args{10}  = R;
-                super_args{11}  = varargin;
+                super_args{4}   = kInit;
+                super_args{5}   = xhatInit;
+                super_args{6}   = PInit;
+                super_args{7}   = uhist;
+                super_args{8}   = zhist;
+                super_args{9}   = thist;
+                super_args{10}  = Q;
+                super_args{11}  = R;
+                super_args{12}  = varargin;
             end
             % batchFilter superclass constructor
             LKFobj@batchFilter(super_args{:});
@@ -82,12 +83,17 @@ classdef batch_LKF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-            xhatk                   = LKFobj.xhatInit;
-            Pk                      = LKFobj.PInit;
-            LKFobj.xhathist(:,1)    = LKFobj.xhatInit;
-            LKFobj.Phist(:,:,1)     = LKFobj.PInit;
-            tk                      = 0;
-            vk                      = zeros(LKFobj.nv,1);
+            xhatk                                = LKFobj.xhatInit;
+            Pk                                   = LKFobj.PInit;
+            LKFobj.xhathist(:,LKFobj.kInit+1)    = LKFobj.xhatInit;
+            LKFobj.Phist(:,:,LKFobj.kInit+1)     = LKFobj.PInit;
+            vk                                   = zeros(LKFobj.nv,1);
+            % Make sure correct initial tk is used.
+            if LKFobj.kInit == 0
+                tk = 0;
+            else
+                tk = LKFobj.thist(LKFobj.kInit);
+            end
         end
         
         % This method performs LKF class filter estimation
@@ -96,13 +102,14 @@ classdef batch_LKF < batchFilter
             [LKFobj,xhatk,Pk,tk,vk] = initFilter(LKFobj);
             
             % Main filter loop.
-            for k = 0:(LKFobj.kmax-1)
+            for k = LKFobj.kInit:(LKFobj.kmax-1)
                 % Prepare loop
                 kp1 = k+1;
                 tkp1 = LKFobj.thist(kp1);
+                uk = LKFobj.uhist(kp1,:)';
                 
                 % Perform dynamic propagation and measurement update
-                [xbarkp1,Pbarkp1] = dynamicProp(LKFobj,xhatk,Pk,vk,tk,tkp1,k);
+                [xbarkp1,Pbarkp1] = dynamicProp(LKFobj,xhatk,Pk,uk,vk,tk,tkp1,k);
                 [xhatkp1,Pkp1,eta_nukp1] = measUpdate(LKFobj,xbarkp1,Pbarkp1,kp1);
                 
                 % Store results
@@ -118,12 +125,12 @@ classdef batch_LKF < batchFilter
         end
         
         % Dynamic propagation method, from sample k to sample k+1.
-        function [xbarkp1,Pbarkp1] = dynamicProp(LKFobj,xhatk,Pk,vk,tk,tkp1,k)
+        function [xbarkp1,Pbarkp1] = dynamicProp(LKFobj,xhatk,Pk,uk,vk,tk,tkp1,k)
             % Check model types and get sample k a priori state estimate.
             if strcmp(LKFobj.modelFlag,'CD')
-                [xbarkp1,F,Gamma] = c2dnonlinear(xhatk,LKFobj.uhist(k+1,:)',vk,tk,tkp1,LKFobj.nRK,LKFobj.fmodel,1);
+                [xbarkp1,F,Gamma] = c2dnonlinear(xhatk,uk,vk,tk,tkp1,LKFobj.nRK,LKFobj.fmodel,1);
             elseif strcmp(LKFobj.modelFlag,'DD')
-                [xbarkp1,F,Gamma] = feval(LKFobj.fmodel,xhatk,LKFobj.uhist(k+1,:)',vk,k);
+                [xbarkp1,F,Gamma] = feval(LKFobj.fmodel,xhatk,uk,vk,k);
             else
                 error('Incorrect flag for the dynamics-measurement models')
             end
@@ -134,7 +141,7 @@ classdef batch_LKF < batchFilter
         % Measurement update method at sample k+1.
         function [xhatkp1,Pkp1,eta_nukp1] = measUpdate(LKFobj,xbarkp1,Pbarkp1,kp1)
             % Linearized at sample k+1 a priori state estimate.
-            [zbarkp1,H] = feval(LKFobj.hmodel,xbarkp1,1);
+            [zbarkp1,H] = feval(LKFobj.hmodel,xbarkp1,kp1,1);
             zkp1 = LKFobj.zhist(kp1,:)';
             % Innovations, innovation covariance, and filter gain.
             nukp1 = zkp1 - zbarkp1;

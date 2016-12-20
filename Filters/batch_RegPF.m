@@ -47,24 +47,25 @@ classdef batch_RegPF < batchFilter
 %% RegPF Methods
     methods
         % RegPF constructor
-        function RegPFobj = batch_RegPF(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
+        function RegPFobj = batch_RegPF(fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
             % Prepare for superclass constructor
             if nargin == 0
-                super_args = cell(1,11);
-            elseif nargin < 10
+                super_args = cell(1,12);
+            elseif nargin < 11
                 error('Not enough input arguments')
             else
                 super_args{1}   = fmodel;
                 super_args{2}   = hmodel;
                 super_args{3}   = modelFlag;
-                super_args{4}   = xhatInit;
-                super_args{5}   = PInit;
-                super_args{6}   = uhist;
-                super_args{7}   = zhist;
-                super_args{8}   = thist;
-                super_args{9}   = Q;
-                super_args{10}  = R;
-                super_args{11}  = varargin;
+                super_args{4}   = kInit;
+                super_args{5}   = xhatInit;
+                super_args{6}   = PInit;
+                super_args{7}   = uhist;
+                super_args{8}   = zhist;
+                super_args{9}   = thist;
+                super_args{10}  = Q;
+                super_args{11}  = R;
+                super_args{12}  = varargin;
             end
             % batchFilter superclass constructor
             RegPFobj@batchFilter(super_args{:});
@@ -114,7 +115,7 @@ classdef batch_RegPF < batchFilter
         end
         
         % This method initializes the RegPF class filter
-        function [RegPFobj,tk,Xikp1,Wikp1] = initFilter(RegPFobj)
+        function [RegPFobj,tk,Xikp1,Wkp1] = initFilter(RegPFobj)
             % Setup the output arrays
             RegPFobj.xhathist     = zeros(RegPFobj.nx,RegPFobj.kmax+1);
             RegPFobj.Phist        = zeros(RegPFobj.nx,RegPFobj.nx,RegPFobj.kmax+1);
@@ -122,15 +123,17 @@ classdef batch_RegPF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-%             xhatk                   = RegPFobj.xhatInit;
-%             Pk                      = RegPFobj.PInit;
-            RegPFobj.xhathist(:,1)     = RegPFobj.xhatInit;
-            RegPFobj.Phist(:,:,1)      = RegPFobj.PInit;
-            tk                      = 0;
-%             vk                      = zeros(RegPFobj.nv,1);
+            RegPFobj.xhathist(:,RegPFobj.kInit+1)     = RegPFobj.xhatInit;
+            RegPFobj.Phist(:,:,RegPFobj.kInit+1)      = RegPFobj.PInit;
+            % Make sure correct initial tk is used.
+            if RegPFobj.kInit == 0
+                tk = 0;
+            else
+                tk = RegPFobj.thist(RegPFobj.kInit);
+            end
             % Generate Ns samples of Xi0 from N[x(k);xhatInit,PInit] and weights
             Xikp1 = RegPFobj.xhatInit*ones(1,RegPFobj.Np) + chol(RegPFobj.PInit)'*randn(RegPFobj.nx,RegPFobj.Np);
-            Wikp1 = ones(1,RegPFobj.Np)*(1/RegPFobj.Np);
+            Wkp1 = ones(1,RegPFobj.Np)*(1/RegPFobj.Np);
         end
         
         % This method performs RegPF class filter estimation
@@ -139,7 +142,7 @@ classdef batch_RegPF < batchFilter
             [RegPFobj,tk,Xikp1,Wkp1] = initFilter(RegPFobj);
             
             % Main filter loop.
-            for k = 0:(RegPFobj.kmax-1)
+            for k = RegPFobj.kInit:(RegPFobj.kmax-1)
                 Xik = Xikp1;
                 Wk = Wkp1;
                 logWk = log(Wk);
@@ -152,14 +155,15 @@ classdef batch_RegPF < batchFilter
                 kp1 = k+1;
                 tkp1 = RegPFobj.thist(kp1);
                 zkp1 = RegPFobj.zhist(kp1,:)';
+                uk = RegPFobj.uhist(kp1,:)';
                 
                 for ii = 1:RegPFobj.Np
                     % Propagate particle to sample k+1
                     vk = vik(:,ii);
-                    Xikp1(:,ii) = dynamicProp(RegPFobj,Xik(:,ii),vk,tk,tkp1,k);
+                    Xikp1(:,ii) = dynamicProp(RegPFobj,Xik(:,ii),uk,vk,tk,tkp1,k);
 %                     Xikp1(:,ii) = fmodel(Xik(:,ii),uhist(kp1,:)',vik(:,ii),k);
                     %  TODO: FIX!!!
-                    [Zikp1,~] = feval(RegPFobj.hmodel,Xikp1(:,ii),0);
+                    [Zikp1,~] = feval(RegPFobj.hmodel,Xikp1(:,ii),kp1,0);
                     % Dummy calc for debug
 %                     zdum = zhist(kp1,:)'-hmodel(Xikp1(:,ii),k+1);
                     % Calculate the current particle's log-weight
@@ -218,12 +222,12 @@ classdef batch_RegPF < batchFilter
         end
         
         % Dynamic propagation method, from sample k to sample k+1.
-        function xbarkp1 = dynamicProp(RegPFobj,xhatk,vk,tk,tkp1,k)
+        function xbarkp1 = dynamicProp(RegPFobj,xhatk,uk,vk,tk,tkp1,k)
             % Check model types and get sample k a priori state estimate.
             if strcmp(RegPFobj.modelFlag,'CD')
-                xbarkp1 = c2dnonlinear(xhatk,RegPFobj.uhist(k+1,:)',vk,tk,tkp1,RegPFobj.nRK,RegPFobj.fmodel,0);
+                xbarkp1 = c2dnonlinear(xhatk,uk,vk,tk,tkp1,RegPFobj.nRK,RegPFobj.fmodel,0);
             elseif strcmp(RegPFobj.modelFlag,'DD')
-                xbarkp1 = feval(RegPFobj.fmodel,xhatk,RegPFobj.uhist(k+1,:)',vk,k);
+                xbarkp1 = feval(RegPFobj.fmodel,xhatk,uk,vk,k);
             else
                 error('Incorrect flag for the dynamics-measurement models')
             end
@@ -232,11 +236,12 @@ classdef batch_RegPF < batchFilter
         % Measurement update method at sample k+1.
         function [xhatkp1,Pkp1] = measUpdate(RegPFobj,Xikp1,Wkp1)
             % Compute xhat(k+1) and P(k+1) from weights and particles
-            xsums = zeros(RegPFobj.nx,RegPFobj.Np);
-            for ii = 1:RegPFobj.Np
-                xsums(:,ii) = Xikp1(:,ii)*Wkp1(ii);
-            end
-            xhatkp1 = sum(xsums,2);
+%             xsums = zeros(RegPFobj.nx,RegPFobj.Np);
+%             for ii = 1:RegPFobj.Np
+%                 xsums(:,ii) = Xikp1(:,ii)*Wkp1(ii);
+%             end
+            xhatkp1 = Xikp1*Wkp1';
+            
             Psums = zeros(RegPFobj.nx,RegPFobj.nx,RegPFobj.Np);
             for ii = 1:RegPFobj.Np
                 Psums(:,:,ii) = Wkp1(ii)*((Xikp1(:,ii)-xhatkp1)*(Xikp1(:,ii)-xhatkp1)');

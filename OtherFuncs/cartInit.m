@@ -1,4 +1,4 @@
-function [x0,P0] = cartInit0(zhist,thist)
+function [x0,P0] = cartInit(kInit,zhist,thist)
 % Tricycle problem initialization
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -67,7 +67,13 @@ y2r(2) = sqrt(rhob2^2 - (y1r(2)-lradarb)^2);
 vr = [(y1r(2)-y1r(1))/(thist(2)-thist(1));(y2r(2)-y2r(1))/(thist(2)-thist(1))];
 
 %%%% c
-yr0 = [y1r(1);y2r(1)]-vr*thist(1);
+if kInit == 0
+    yr0 = [y1r(1);y2r(1)]-vr*thist(1);
+elseif kInit == 1
+    yr0 = [y1r(1);y2r(1)];
+else
+    error('kInit should only be 0 or 1 here')
+end
 
 %%%% d
 psi0 = atan2(vr(2),vr(1));
