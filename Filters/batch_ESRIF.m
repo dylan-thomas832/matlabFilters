@@ -61,7 +61,7 @@ classdef batch_ESRIF < batchFilter
 %% ESRIF Methods
     methods
         % ESRIF constructor
-        function ESRIFobj = batch_ESRIF(fmodel,hmodel,modelFlag,xhat0,P0,uhist,zhist,thist,Q,R,varargin)
+        function ESRIFobj = batch_ESRIF(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
             % Prepare for superclass constructor
             if nargin == 0
                 super_args = cell(1,11);
@@ -71,8 +71,8 @@ classdef batch_ESRIF < batchFilter
                 super_args{1}   = fmodel;
                 super_args{2}   = hmodel;
                 super_args{3}   = modelFlag;
-                super_args{4}   = xhat0;
-                super_args{5}   = P0;
+                super_args{4}   = xhatInit;
+                super_args{5}   = PInit;
                 super_args{6}   = uhist;
                 super_args{7}   = zhist;
                 super_args{8}   = thist;
@@ -112,10 +112,10 @@ classdef batch_ESRIF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-            xhatk                   = ESRIFobj.xhat0;
-            Pk                      = ESRIFobj.P0;
-            ESRIFobj.xhathist(:,1)    = ESRIFobj.xhat0;
-            ESRIFobj.Phist(:,:,1)     = ESRIFobj.P0;
+            xhatk                   = ESRIFobj.xhatInit;
+            Pk                      = ESRIFobj.PInit;
+            ESRIFobj.xhathist(:,1)    = ESRIFobj.xhatInit;
+            ESRIFobj.Phist(:,:,1)     = ESRIFobj.PInit;
             tk                      = 0;
             vk                      = zeros(ESRIFobj.nv,1);
         end
@@ -135,7 +135,7 @@ classdef batch_ESRIF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-            ESRIFobj.Rxxk = inv(chol(ESRIFobj.P0)');
+            ESRIFobj.Rxxk = inv(chol(ESRIFobj.PInit)');
             
             % Main filter loop.
             for k = 0:(ESRIFobj.kmax-1)

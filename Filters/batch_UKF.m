@@ -37,7 +37,7 @@ classdef batch_UKF < batchFilter
 %% UKF Methods
     methods
         % UKF constructor
-        function UKFobj = batch_UKF(fmodel,hmodel,modelFlag,xhat0,P0,uhist,zhist,thist,Q,R,varargin)
+        function UKFobj = batch_UKF(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
             % Prepare for superclass constructor
             if nargin == 0
                 super_args = cell(1,11);
@@ -47,8 +47,8 @@ classdef batch_UKF < batchFilter
                 super_args{1}   = fmodel;
                 super_args{2}   = hmodel;
                 super_args{3}   = modelFlag;
-                super_args{4}   = xhat0;
-                super_args{5}   = P0;
+                super_args{4}   = xhatInit;
+                super_args{5}   = PInit;
                 super_args{6}   = uhist;
                 super_args{7}   = zhist;
                 super_args{8}   = thist;
@@ -124,10 +124,10 @@ classdef batch_UKF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-            xhatk                   = UKFobj.xhat0;
-            Pk                      = UKFobj.P0;
-            UKFobj.xhathist(:,1)    = UKFobj.xhat0;
-            UKFobj.Phist(:,:,1)     = UKFobj.P0;
+            xhatk                   = UKFobj.xhatInit;
+            Pk                      = UKFobj.PInit;
+            UKFobj.xhathist(:,1)    = UKFobj.xhatInit;
+            UKFobj.Phist(:,:,1)     = UKFobj.PInit;
             tk                      = 0;
             vk                      = zeros(UKFobj.nv,1);
             Svvk                    = chol(UKFobj.Q)';

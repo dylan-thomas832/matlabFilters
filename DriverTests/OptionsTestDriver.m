@@ -49,7 +49,7 @@ nRK = 20;
 % Control vector
 uk = zeros(length(thist),1);
 
-ekf = batch_EKF(ffunc,hfunc,'CD',xguess,Pguess,uk,zhist,thist,Qk,Rk,nRK);
+ekf = batch_EKF(ffunc,hfunc,'CD',xguess,Pguess,[],zhist,thist,Qk,Rk,nRK);
 ekf = ekf.doFilter();
 
 %% Results

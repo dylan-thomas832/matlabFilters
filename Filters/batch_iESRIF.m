@@ -61,7 +61,7 @@ classdef batch_iESRIF < batchFilter
 %% iESRIF Methods
     methods
         % iESRIF constructor
-        function iESRIFobj = batch_iESRIF(fmodel,hmodel,modelFlag,xhat0,P0,uhist,zhist,thist,Q,R,varargin)
+        function iESRIFobj = batch_iESRIF(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
             % Prepare for superclass constructor
             if nargin == 0
                 super_args = cell(1,11);
@@ -71,8 +71,8 @@ classdef batch_iESRIF < batchFilter
                 super_args{1}   = fmodel;
                 super_args{2}   = hmodel;
                 super_args{3}   = modelFlag;
-                super_args{4}   = xhat0;
-                super_args{5}   = P0;
+                super_args{4}   = xhatInit;
+                super_args{5}   = PInit;
                 super_args{6}   = uhist;
                 super_args{7}   = zhist;
                 super_args{8}   = thist;
@@ -112,10 +112,10 @@ classdef batch_iESRIF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-            xhatk                   = iESRIFobj.xhat0;
-            Pk                      = iESRIFobj.P0;
-            iESRIFobj.xhathist(:,1)    = iESRIFobj.xhat0;
-            iESRIFobj.Phist(:,:,1)     = iESRIFobj.P0;
+            xhatk                   = iESRIFobj.xhatInit;
+            Pk                      = iESRIFobj.PInit;
+            iESRIFobj.xhathist(:,1)    = iESRIFobj.xhatInit;
+            iESRIFobj.Phist(:,:,1)     = iESRIFobj.PInit;
             tk                      = 0;
             vk                      = zeros(iESRIFobj.nv,1);
         end
@@ -135,7 +135,7 @@ classdef batch_iESRIF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-            iESRIFobj.Rxxk = inv(chol(iESRIFobj.P0)');
+            iESRIFobj.Rxxk = inv(chol(iESRIFobj.PInit)');
             
             % Main filter loop.
             for k = 0:(iESRIFobj.kmax-1)

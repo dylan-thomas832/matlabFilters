@@ -11,15 +11,17 @@
 
 %% TODO:
 %
+% # Add option for variable Q and R?
 % # Demystify beginning sample/tk = 0 problem (kinit maybe?)
 % # Get rid of inv( ) warnings
 % # Add continuous measurement model functionality?
 
-%% Abstract Filter Class Deinfition
+%% Abstract Filter Class Definition
 classdef (Abstract) batchFilter
 
-%% Filter Object Properties
-% *Default Inputs:*
+%% Default Inputs
+% These are the properties that every batchFilter subclass takes in from
+% the class instantiation.
    properties
 
        fmodel       % String: 
@@ -46,11 +48,11 @@ classdef (Abstract) batchFilter
                     % discrete-time models via the c2dnonlinear 
                     % function.
                     
-       xhat0        % (nx)x1 vector:
+       xhatInit     % (nx)x1 vector:
                     %
                     % Initial a posteriori state estimate.
        
-       P0           % (nx)x(nx) matrix:
+       PInit        % (nx)x(nx) matrix:
                     %
                     % Initial a posteriori error covariance matrix.
        
@@ -80,20 +82,21 @@ classdef (Abstract) batchFilter
        Q            % (nv)x(nv) matrix:
                     % 
                     % Symmetric, positive definite process noise 
-                    % covariance matrix.
+                    % covariance matrix. Assumed constant for all k.
        
        R            % (nz)x(nz) matrix:
                     % 
                     % Symmetric, positive definite measurement noise 
-                    % covariance matrix.
+                    % covariance matrix. Assumed constant for all k.
                     
        optArgs      % cell array:
                     %
                     % Extra/optional arguments for each filter class.
    end
    
-%%%
-% *Default Outputs:*
+%% Default Outputs
+% These are the default properties which all batchFilter subclasses
+% calculate and store as outputs of their algorithm. More may be added.
    properties
 
        xhathist     % (nx)x(kmax+1) array:
@@ -110,8 +113,9 @@ classdef (Abstract) batchFilter
                     % Innovation statistics time-history.
    end
 
-%%% 
-% *Dependent Properties:*
+%% Dependent Properties
+% These are general properties which every batchfilter subclass may use,
+% but are dependent on the Input Properties.
    properties (Dependent, Access = protected)
        nx           % Number of states
        nu           % Number of control inputs
@@ -119,49 +123,80 @@ classdef (Abstract) batchFilter
        nz           % Number of measurement states
        kmax         % Number of discrete samples
    end
-   
-%% Filter Object Methods  
-% *Default Constructor:*
+
+%% Default Constructor
+% This method is the default constructor for all batchFilter subclasses
    methods (Access = protected)
        % Batch Filter constructor
-       function Filterobj = batchFilter(fmodel,hmodel,modelFlag,xhat0,P0,uhist,zhist,thist,Q,R,optArgs)
+       function Filterobj = batchFilter(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,optArgs)
            % Check inputs
-           inputsCheck(modelFlag,xhat0,P0,uhist,zhist,thist,R);
-           % Assign properties to Filter Object
-           Filterobj.fmodel = fmodel;
-           Filterobj.hmodel = hmodel;
+           inputsCheck(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R);
+           % Assign inputs to Filter Object properties
+           Filterobj.fmodel    = fmodel;
+           Filterobj.hmodel    = hmodel;
            Filterobj.modelFlag = modelFlag;
-           Filterobj.xhat0 = xhat0;
-           Filterobj.P0 = P0;
-           Filterobj.uhist = uhist;
-           Filterobj.zhist = zhist;
-           Filterobj.thist = thist;
-           Filterobj.Q = Q;
-           Filterobj.R = R;
-           Filterobj.optArgs = optArgs;
+           Filterobj.xhatInit  = xhatInit;
+           Filterobj.PInit     = PInit;
+           % Assigns zero vector if uhist is empty
+           if ~isempty(uhist)
+               Filterobj.uhist = uhist;
+           else
+               Filterobj.uhist = zeros(size(zhist,1),1);
+           end
+           % Assigns zero vector if thist is empty
+           if ~isempty(thist)
+               Filterobj.thist = thist;
+           else
+               Filterobj.thist = zeros(size(zhist,1),1);
+           end
+           Filterobj.zhist     = zhist;
+           Filterobj.thist     = thist;
+           Filterobj.Q         = Q;
+           Filterobj.R         = R;
+           Filterobj.optArgs  = optArgs;
        end
    end
-%%%  
-% *Dependent 'Get' Methods:*
+%% Dependent 'Get' Methods
+% These methods are used to retrieve the dependent properties defined above
    methods
+       % Size of state
        function val = get.nx(Filterobj)
-           val = size(Filterobj.xhat0,1);
+           val = size(Filterobj.xhatInit,1);
        end
+       % Size of control input
        function val = get.nu(Filterobj)
            val = size(Filterobj.uhist,2);
        end
+       % Size of process noise
        function val = get.nv(Filterobj)
            val = size(Filterobj.Q,1);
        end
+       % Size of measurements
        function val = get.nz(Filterobj)
-           val = size(Filterobj.zhist,2);
+           val = size(Filterobj.R,1);
        end
+       % Number of samples to filter
        function val = get.kmax(Filterobj)
            val = size(Filterobj.zhist,1);
+%%%% Save this for implementation in smoothers?
+%            if ~isempty(Filterobj.zhist)
+%                val = size(Filterobj.zhist,1);
+%            elseif ~isempty(Filterobj.uhist)
+%                val = size(Filterobj.uhist,1);
+%            elseif ~isempty(Filterobj.thist)
+%                val = size(Filterobj.thist,1);
+%            else
+%            end
        end
+%%%% Save this for implementation in smoothers?
+%        % Check if simulation is needed.
+%        function val = get.simFlag(Filterobj)
+%            val = isempty(Filterobj.zhist);
+%        end
    end
-%%%  
-% *Abstract Methods:*
+%% Abstract Methods
+% These methods are required to be defined by any batchFilter subclass
+
    methods (Abstract)
        argumentsCheck(Filterobj)
        initFilter(Filterobj)
@@ -173,30 +208,46 @@ classdef (Abstract) batchFilter
 end
 
 %% Helper Function
-%
-function inputsCheck(modelFlag,xhat0,P0,uhist,zhist,thist,R)
-% This helper function checks that the inputs are the right type and size.
+% This helper function checks that the inputs are the right type and size
+function inputsCheck(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R)
 
 % Get problem dimensions for easier checking
-Nx = size(xhat0,1);
+Nx = size(xhatInit,1);
 Nz = size(R,1);
 Kmax = size(zhist,1);
 
-% Assertions to ensure correct input arguments to the filter.
+% Assert that the necessary inputs have been given
+assert((~isempty(fmodel) && isa(fmodel,'char')),...
+    'batchfilter:instantiation',...
+    'User must supply filter with a function name for the dynamics model')
+assert((~isempty(hmodel) && isa(hmodel,'char')),...
+    'batchfilter:instantiation',...
+    'User must supply filter with a function name for the measurement model')
+assert((~isempty(xhatInit) && ~isempty(PInit)),...
+    'batchfilter:instantiation',...
+    'User must supply filter with an initial a posteriori state estimate and error covariance')
+assert(~isempty(zhist),...
+    'batchfilter:instantiation',...
+    'User must supply filter with a measurement history')
+assert((~isempty(Q) && ~isempty(R)),...
+    'batchfilter:instantiation',...
+    'User must supply filter with process and measurement noise covariances')
 
 % Assert that the model types are correct
 assert((strcmp(modelFlag,'CD')||strcmp(modelFlag,'DD')),...
     'batchFilter:instantiation',...
     'The model-type flag is incorrect')
 % Assert that the error covariance matrix is sized correctly
-assert(((size(P0,1)==Nx)&&(size(P0,2)==Nx)),...
+assert(((size(PInit,1)==Nx)&&(size(PInit,2)==Nx)),...
     'batchFilter:instantiation',...
     'Initial error covariance does not have the correct dimensions')
-% Assert that the measurement vector and covariance are correct.
+
+% Assert that the measurement vector and covariance are correctly sized.
 assert((size(zhist,2)==Nz),...
     'batchFilter:instantiation',...
     'Measurement vector and measurement noise covariance do not match in size')
-% Assert that the control history and time vectors are correct
+    
+% Assert that the control history and time vectors are correctly sized.
 if ~isempty(uhist)
     assert((size(uhist,1)==Kmax),...
         'batchFilter:instantiation',...

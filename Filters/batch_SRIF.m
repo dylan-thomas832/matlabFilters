@@ -61,7 +61,7 @@ classdef batch_SRIF < batchFilter
 %% SRIF Methods
     methods
         % SRIF constructor
-        function SRIFobj = batch_SRIF(fmodel,hmodel,modelFlag,xhat0,P0,uhist,zhist,thist,Q,R,varargin)
+        function SRIFobj = batch_SRIF(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
             % Prepare for superclass constructor
             if nargin == 0
                 super_args = cell(1,11);
@@ -71,8 +71,8 @@ classdef batch_SRIF < batchFilter
                 super_args{1}   = fmodel;
                 super_args{2}   = hmodel;
                 super_args{3}   = modelFlag;
-                super_args{4}   = xhat0;
-                super_args{5}   = P0;
+                super_args{4}   = xhatInit;
+                super_args{5}   = PInit;
                 super_args{6}   = uhist;
                 super_args{7}   = zhist;
                 super_args{8}   = thist;
@@ -112,10 +112,10 @@ classdef batch_SRIF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-            xhatk                   = SRIFobj.xhat0;
-            Pk                      = SRIFobj.P0;
-            SRIFobj.xhathist(:,1)    = SRIFobj.xhat0;
-            SRIFobj.Phist(:,:,1)     = SRIFobj.P0;
+            xhatk                   = SRIFobj.xhatInit;
+            Pk                      = SRIFobj.PInit;
+            SRIFobj.xhathist(:,1)    = SRIFobj.xhatInit;
+            SRIFobj.Phist(:,:,1)     = SRIFobj.PInit;
             tk                      = 0;
             vk                      = zeros(SRIFobj.nv,1);
         end
@@ -135,7 +135,7 @@ classdef batch_SRIF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-            SRIFobj.Rxxk = inv(chol(SRIFobj.P0)');
+            SRIFobj.Rxxk = inv(chol(SRIFobj.PInit)');
             
             % Main filter loop.
             for k = 0:(SRIFobj.kmax-1)

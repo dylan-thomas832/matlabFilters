@@ -80,10 +80,10 @@ classdef batch_EKF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-            xhatk                   = EKFobj.xhat0;
-            Pk                      = EKFobj.P0;
-            EKFobj.xhathist(:,1)    = EKFobj.xhat0;
-            EKFobj.Phist(:,:,1)     = EKFobj.P0;
+            xhatk                   = EKFobj.xhatInit;
+            Pk                      = EKFobj.PInit;
+            EKFobj.xhathist(:,1)    = EKFobj.xhatInit;
+            EKFobj.Phist(:,:,1)     = EKFobj.PInit;
             tk                      = 0;
             vk                      = zeros(EKFobj.nv,1);
         end

@@ -31,7 +31,7 @@ classdef batch_LKF < batchFilter
 %% LKF Methods
     methods
         % LKF constructor
-        function LKFobj = batch_LKF(fmodel,hmodel,modelFlag,xhat0,P0,uhist,zhist,thist,Q,R,varargin)
+        function LKFobj = batch_LKF(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
             % Prepare for superclass constructor
             if nargin == 0
                 super_args = cell(1,11);
@@ -41,8 +41,8 @@ classdef batch_LKF < batchFilter
                 super_args{1}   = fmodel;
                 super_args{2}   = hmodel;
                 super_args{3}   = modelFlag;
-                super_args{4}   = xhat0;
-                super_args{5}   = P0;
+                super_args{4}   = xhatInit;
+                super_args{5}   = PInit;
                 super_args{6}   = uhist;
                 super_args{7}   = zhist;
                 super_args{8}   = thist;
@@ -82,10 +82,10 @@ classdef batch_LKF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-            xhatk                   = LKFobj.xhat0;
-            Pk                      = LKFobj.P0;
-            LKFobj.xhathist(:,1)    = LKFobj.xhat0;
-            LKFobj.Phist(:,:,1)     = LKFobj.P0;
+            xhatk                   = LKFobj.xhatInit;
+            Pk                      = LKFobj.PInit;
+            LKFobj.xhathist(:,1)    = LKFobj.xhatInit;
+            LKFobj.Phist(:,:,1)     = LKFobj.PInit;
             tk                      = 0;
             vk                      = zeros(LKFobj.nv,1);
         end

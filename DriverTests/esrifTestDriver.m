@@ -6,7 +6,7 @@ clearvars; close all; clc;
 
 % Custom scripts for keeping organization
 asv;
-addPathsMBE;
+addPaths;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Constants, Inputs, Parameters

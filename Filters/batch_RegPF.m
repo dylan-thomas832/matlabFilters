@@ -47,7 +47,7 @@ classdef batch_RegPF < batchFilter
 %% RegPF Methods
     methods
         % RegPF constructor
-        function RegPFobj = batch_RegPF(fmodel,hmodel,modelFlag,xhat0,P0,uhist,zhist,thist,Q,R,varargin)
+        function RegPFobj = batch_RegPF(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
             % Prepare for superclass constructor
             if nargin == 0
                 super_args = cell(1,11);
@@ -57,8 +57,8 @@ classdef batch_RegPF < batchFilter
                 super_args{1}   = fmodel;
                 super_args{2}   = hmodel;
                 super_args{3}   = modelFlag;
-                super_args{4}   = xhat0;
-                super_args{5}   = P0;
+                super_args{4}   = xhatInit;
+                super_args{5}   = PInit;
                 super_args{6}   = uhist;
                 super_args{7}   = zhist;
                 super_args{8}   = thist;
@@ -122,14 +122,14 @@ classdef batch_RegPF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-%             xhatk                   = RegPFobj.xhat0;
-%             Pk                      = RegPFobj.P0;
-            RegPFobj.xhathist(:,1)     = RegPFobj.xhat0;
-            RegPFobj.Phist(:,:,1)      = RegPFobj.P0;
+%             xhatk                   = RegPFobj.xhatInit;
+%             Pk                      = RegPFobj.PInit;
+            RegPFobj.xhathist(:,1)     = RegPFobj.xhatInit;
+            RegPFobj.Phist(:,:,1)      = RegPFobj.PInit;
             tk                      = 0;
 %             vk                      = zeros(RegPFobj.nv,1);
-            % Generate Ns samples of Xi0 from N[x(k);xhat0,P0] and weights
-            Xikp1 = RegPFobj.xhat0*ones(1,RegPFobj.Np) + chol(RegPFobj.P0)'*randn(RegPFobj.nx,RegPFobj.Np);
+            % Generate Ns samples of Xi0 from N[x(k);xhatInit,PInit] and weights
+            Xikp1 = RegPFobj.xhatInit*ones(1,RegPFobj.Np) + chol(RegPFobj.PInit)'*randn(RegPFobj.nx,RegPFobj.Np);
             Wikp1 = ones(1,RegPFobj.Np)*(1/RegPFobj.Np);
         end
         

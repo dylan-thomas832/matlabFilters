@@ -41,7 +41,7 @@ classdef batch_PF < batchFilter
 %% PF Methods
     methods
         % PF constructor
-        function PFobj = batch_PF(fmodel,hmodel,modelFlag,xhat0,P0,uhist,zhist,thist,Q,R,varargin)
+        function PFobj = batch_PF(fmodel,hmodel,modelFlag,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
             % Prepare for superclass constructor
             if nargin == 0
                 super_args = cell(1,11);
@@ -51,8 +51,8 @@ classdef batch_PF < batchFilter
                 super_args{1}   = fmodel;
                 super_args{2}   = hmodel;
                 super_args{3}   = modelFlag;
-                super_args{4}   = xhat0;
-                super_args{5}   = P0;
+                super_args{4}   = xhatInit;
+                super_args{5}   = PInit;
                 super_args{6}   = uhist;
                 super_args{7}   = zhist;
                 super_args{8}   = thist;
@@ -107,14 +107,14 @@ classdef batch_PF < batchFilter
             
             % Initialize quantities for use in the main loop and store the 
             % first a posteriori estimate and its error covariance matrix.
-%             xhatk                   = PFobj.xhat0;
-%             Pk                      = PFobj.P0;
-            PFobj.xhathist(:,1)     = PFobj.xhat0;
-            PFobj.Phist(:,:,1)      = PFobj.P0;
+%             xhatk                   = PFobj.xhatInit;
+%             Pk                      = PFobj.PInit;
+            PFobj.xhathist(:,1)     = PFobj.xhatInit;
+            PFobj.Phist(:,:,1)      = PFobj.PInit;
             tk                      = 0;
 %             vk                      = zeros(PFobj.nv,1);
-            % Generate Ns samples of Xi0 from N[x(k);xhat0,P0] and weights
-            Xikp1 = PFobj.xhat0*ones(1,PFobj.Np) + chol(PFobj.P0)'*randn(PFobj.nx,PFobj.Np);
+            % Generate Ns samples of Xi0 from N[x(k);xhatInit,PInit] and weights
+            Xikp1 = PFobj.xhatInit*ones(1,PFobj.Np) + chol(PFobj.PInit)'*randn(PFobj.nx,PFobj.Np);
             Wkp1 = ones(1,PFobj.Np)*(1/PFobj.Np);
         end
         

@@ -10,7 +10,7 @@ clearvars; close all; clc;
 
 % Custom scripts for keeping organization
 asv;
-addPathsMBE;
+addPaths;
 format long
 
 %%% Implement Extended Kalman Filter
