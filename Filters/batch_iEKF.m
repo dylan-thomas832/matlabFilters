@@ -7,7 +7,6 @@
 %% TODO:
 %
 % # Determine validity of measurement update iteration (not consistent with Niter >2)
-% # Demystify beginning sample/tk = 0 problem (kinit maybe?)
 % # Get rid of inv( ) warnings
 % # Add continuous measurement model functionality?
 

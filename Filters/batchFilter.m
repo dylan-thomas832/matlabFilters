@@ -12,7 +12,6 @@
 %% TODO:
 %
 % # Add option for variable Q and R?
-% # Demystify beginning sample/tk = 0 problem (kinit maybe?)
 % # Add continuous measurement model functionality?? (maybe not?)
 
 %% Abstract Filter Class Definition
@@ -155,7 +154,6 @@ classdef (Abstract) batchFilter
                Filterobj.thist = zeros(size(zhist,1),1);
            end
            Filterobj.zhist     = zhist;
-           Filterobj.thist     = thist;
            Filterobj.Q         = Q;
            Filterobj.R         = R;
            Filterobj.optArgs  = optArgs;

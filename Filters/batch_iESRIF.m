@@ -96,7 +96,7 @@ classdef batch_iESRIF < batchFilter
                 case 1
                     iESRIFobj.nRK = iESRIFobj.optArgs{1};
                 otherwise
-                    error('Not enough input arguments')
+                    error('Too many input arguments')
             end
             % Ensures extra input arguments have sensible values.
             if iESRIFobj.nRK < 5

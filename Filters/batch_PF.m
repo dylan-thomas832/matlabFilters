@@ -6,7 +6,7 @@
 
 %% TODO:
 %
-% # Demystify beginning sample/tk = 0 problem (kinit maybe?)
+% # Still weird answers for tricycle problem
 % # Get rid of inv( ) warnings
 % # Add continuous measurement model functionality?
 
@@ -30,7 +30,7 @@ classdef batch_PF < batchFilter
                         % The number of particles to generate and use in
                         % estimating the state. The default value is 100.
                     
-        resampleFlag    % integer"
+        resampleFlag    % integer:
                         %
                         % Flag to determine which sampling algorithm to
                         % implement. Options are 0,1,2 which correspond to
