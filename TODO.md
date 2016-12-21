@@ -1,5 +1,6 @@
 # TODO List:
 
+## Unfinished
 1. Revisit input descriptions - give ranges by types
 2. Finish iESRIF, review iEKF
 3. Figure out eta_nukp1 for PF and RegPF 
@@ -14,3 +15,10 @@
 12. Finish all MATLAB assignments and organize them. Delete old assignment directories
 13. Write a 'tutorial' and finish the Github README
 13. Convert to Python?
+
+## Finished
+1. Object-oriented classes for filters
+2. Standardize inputs and outputs
+3. Create basic drivers for testing
+4. Add consistency output variables
+5. Reorganize directories **Revisit Later**
