@@ -18,10 +18,10 @@
 % # Add continuous measurement model functionality?? (maybe not?)
 
 %% Abstract Filter Class Definition
-classdef (Abstract) singleStepFilter
+classdef (Abstract) stepFilter
 
 %% Default Inputs
-% These are the properties that every batchFilter subclass takes in from
+% These are the properties that every stepFilter subclass takes in from
 % the class instantiation.
    properties
 
@@ -49,51 +49,53 @@ classdef (Abstract) singleStepFilter
                     % discrete-time models via the c2dnonlinear 
                     % function.
                     
-       kInit        % Scalar Integer:
+       k            % Scalar Integer:
                     %
-                    % Initial sample to begin filtering. This is depends on
-                    % the initial xhat and P.
+                    % Current sample at which the filter step is to be 
+                    % implemented.
                     
-       xhatInit     % (nx)x1 Vector:
+       xhatk        % (nx)x1 Vector:
                     %
-                    % Initial a posteriori state estimate.
+                    % a posteriori state estimate at sample k.
        
-       PInit        % (nx)x(nx) Matrix:
+       Pk           % (nx)x(nx) Matrix:
                     %
-                    % Initial a posteriori error covariance matrix.
+                    % a posteriori error covariance matrix at sample k.
        
-       uhist        % (kmax)x(nu) Array:
+       uk           % (nu)x1 Vector:
                     % 
-                    % Control state time-history from sample k=1 to 
-                    % sample k=kmax. This is assumed to be known and
-                    % deterministic. This input can be an empty 
-                    % array if there are no control inputs.
+                    % Control state at sample k. This is assumed to be 
+                    % known and deterministic. This input can be an empty 
+                    % vector if there are no control inputs.
        
-       zhist        % (kmax)x(nz) Array:
+       zkp1         % (nz)x1 Vector:
                     %
-                    % Measurement state time-history from sample k=1 
-                    % to sample k=kmax. These are the actual 
+                    % Measurement state at sample k. These are the actual 
                     % measurements taken by the system, supplied by 
                     % the user.
-       
-       thist        % (kmax)x1 Vector:
+                    
+       tk           % Scalar:
                     %
-                    % Time vector defining the discrete times for each
-                    % sample from sample k=1 to sample k=kmax. This is
+                    % Defines the discrete time at sample k. This is
                     % mainly for problems where the dynamics models 
                     % are defined in continuous-time. This can be an 
-                    % empty array if there is no need for defining the 
+                    % empty vector if there is no need for defining the 
                     % times of each sample.
        
-       Q            % (nv)x(nv) Matrix:
+       dt           % Scalar:
+                    % 
+                    % Change in time between sample k and sample k+1. Leave
+                    % as empty scalar if not needed (discrete models).
+                    
+       Qk           % (nv)x(nv) Matrix:
                     % 
                     % Symmetric, positive definite process noise 
-                    % covariance matrix. Assumed constant for all k.
+                    % covariance matrix at sample k.
        
-       R            % (nz)x(nz) Matrix:
+       Rkp1         % (nz)x(nz) Matrix:
                     % 
                     % Symmetric, positive definite measurement noise 
-                    % covariance matrix. Assumed constant for all k.
+                    % covariance matrix at sample k+1.
                     
        optArgs      % Cell Array:
                     %
@@ -101,97 +103,108 @@ classdef (Abstract) singleStepFilter
    end
    
 %% Default Outputs
-% These are the default properties which all batchFilter subclasses
+% These are the default properties which all stepFilter subclasses
 % calculate and store as outputs of their algorithm. More may be added.
    properties
 
-       xhathist     % (nx)x(kmax+1) Array:
+       xhatkp1      % (nx)x1 Vector:
                     % 
-                    % A posteriori state estimate time-history.
+                    % a posteriori state estimate at sample k+1.
        
-       Phist        % (nx)x(nx)x(kmax+1) Array:
+       Pkp1         % (nx)x(nx) Matrix:
                     %
-                    % A posteriori error covariance matrix 
-                    % time-history.
+                    % a posteriori error covariance matrix at sample k+1.
        
-       eta_nuhist   % (kmax)x1 Vector:
+       eta_nukp1    % Scalar:
                     % 
-                    % Innovation statistics time-history.
+                    % Innovation statistic at sample k+1.
    end
 
 %% Dependent Properties
-% These are general properties which every batchfilter subclass may use,
+% These are general properties which every stepfilter subclass may use,
 % but are dependent on the Input Properties.
    properties (Dependent, Access = protected)
        nx           % Number of states
        nu           % Number of control inputs
        nv           % Number of process noise states
        nz           % Number of measurement states
-       kmax         % Number of discrete samples
+       tkp1         % Time at sample k+1
    end
 
 %% Default Constructor
-% This method is the default constructor for all batchFilter subclasses
+% This method is the default constructor for all stepFilter subclasses
    methods (Access = protected)
-       % Batch Filter constructor
-       function Filterobj = batchFilter(varargin)
+       % step Filter constructor
+       function Filterobj = stepFilter(varargin)
            % If user inputs properties inside a structure
            if nargin == 1
                % Get input structure containing inputs
                in = varargin{1};
                % Check inputs
-               inputsCheck(in.fmodel,in.hmodel,in.modelFlag,in.kInit,in.xhatInit,in.PInit,in.uhist,in.zhist,in.thist,in.Q,in.R);
+               inputsCheck(in.fmodel,in.hmodel,in.modelFlag,in.k,in.xhatk,in.Pk,in.zkp1,in.Qk,in.Rkp1);
                % Assign inputs to Filter Object properties
                Filterobj.fmodel    = in.fmodel;
                Filterobj.hmodel    = in.hmodel;
                Filterobj.modelFlag = in.modelFlag;
-               Filterobj.kInit     = in.kInit;
-               Filterobj.xhatInit  = in.xhatInit;
-               Filterobj.PInit     = in.PInit;
-               % Assigns zero vector if uhist is empty
-               if ~isempty(in.uhist)
-                   Filterobj.uhist = in.uhist;
+               Filterobj.k         = in.k;
+               Filterobj.xhatk     = in.xhatk;
+               Filterobj.Pk        = in.Pk;
+               % Assigns zero if uk is empty
+               if ~isempty(in.uk)
+                   Filterobj.uk = in.uk;
                else
-                   Filterobj.uhist = zeros(size(in.zhist,1),1);
+                   Filterobj.uk = 0;
                end
-               % Assigns zero vector if thist is empty
-               if ~isempty(in.thist)
-                   Filterobj.thist = in.thist;
+               Filterobj.zkp1      = in.zkp1;
+               % Assigns zero if tk is empty
+               if ~isempty(in.tk)
+                   Filterobj.tk = in.tk;
                else
-                   Filterobj.thist = zeros(size(in.zhist,1),1);
+                   Filterobj.tk = 0;
                end
-               Filterobj.zhist     = in.zhist;
-               Filterobj.Q         = in.Q;
-               Filterobj.R         = in.R;
+               % Assigns zero if dt is empty
+               if ~isempty(in.dt)
+                   Filterobj.dt = in.dt;
+               else
+                   Filterobj.dt = 0;
+               end
+               Filterobj.Qk        = in.Qk;
+               Filterobj.Rkp1      = in.Rkp1;
                Filterobj.optArgs   = in.optArgs;
            
            % If user inputs properties separately
-           elseif nargin == 12
+           elseif nargin == 13
                % Check inputs
                inputsCheck(varargin{1:11});
                % Assign inputs to Filter Object properties
                Filterobj.fmodel    = varargin{1};
                Filterobj.hmodel    = varargin{2};
                Filterobj.modelFlag = varargin{3};
-               Filterobj.kInit     = varargin{4};
-               Filterobj.xhatInit  = varargin{5};
-               Filterobj.PInit     = varargin{6};
-               % Assigns zero vector if uhist is empty
+               Filterobj.k         = varargin{4};
+               Filterobj.xhatk     = varargin{5};
+               Filterobj.Pk        = varargin{6};
+               % Assigns zero if uk is empty
                if ~isempty(varargin{7})
-                   Filterobj.uhist = varargin{7};
+                   Filterobj.uk    = varargin{7};
                else
-                   Filterobj.uhist = zeros(size(varargin{8},1),1);
+                   Filterobj.uk    = 0;
                end
-               % Assigns zero vector if thist is empty
+               Filterobj.zkp1      = varargin{8};
+               % Assigns zero if tk is empty
                if ~isempty(varargin{9})
-                   Filterobj.thist = varargin{9};
+                   Filterobj.tk    = varargin{9};
                else
-                   Filterobj.thist = zeros(size(varargin{8},1),1);
+                   Filterobj.tk    = 0;
                end
-               Filterobj.zhist     = varargin{8};
-               Filterobj.Q         = varargin{10};
-               Filterobj.R         = varargin{11};
-               Filterobj.optArgs   = {varargin{12}};
+               % Assigns zero if dt is empty
+               if ~isempty(varargin{10})
+                   Filterobj.dt    = varargin{10};
+               else
+                   Filterobj.dt    = 0;
+               end
+               Filterobj.Qk        = varargin{11};
+               Filterobj.Rkp1      = varargin{12};
+               Filterobj.optArgs   = {varargin{13}};
                
            % If user inputs properties incorrectly
            elseif nargin ~= 0
@@ -204,41 +217,27 @@ classdef (Abstract) singleStepFilter
    methods
        % Size of state
        function val = get.nx(Filterobj)
-           val = size(Filterobj.xhatInit,1);
+           val = size(Filterobj.xhatk,1);
        end
        % Size of control input
        function val = get.nu(Filterobj)
-           val = size(Filterobj.uhist,2);
+           val = size(Filterobj.uk,2);
        end
        % Size of process noise
        function val = get.nv(Filterobj)
-           val = size(Filterobj.Q,1);
+           val = size(Filterobj.Qk,1);
        end
        % Size of measurements
        function val = get.nz(Filterobj)
-           val = size(Filterobj.R,1);
+           val = size(Filterobj.Rkp1,1);
        end
        % Number of samples to filter
-       function val = get.kmax(Filterobj)
-           val = size(Filterobj.zhist,1);
-%%%% Save this for implementation in smoothers?
-%            if ~isempty(Filterobj.zhist)
-%                val = size(Filterobj.zhist,1);
-%            elseif ~isempty(Filterobj.uhist)
-%                val = size(Filterobj.uhist,1);
-%            elseif ~isempty(Filterobj.thist)
-%                val = size(Filterobj.thist,1);
-%            else
-%            end
+       function val = get.tkp1(Filterobj)
+           val = Filterobj.tk + Filterobj.dt;
        end
-%%%% Save this for implementation in smoothers?
-%        % Check if simulation is needed.
-%        function val = get.simFlag(Filterobj)
-%            val = isempty(Filterobj.zhist);
-%        end
    end
 %% Abstract Methods
-% These methods are required to be defined by any batchFilter subclass
+% These methods are required to be defined by any stepFilter subclass
 
    methods (Abstract)
        argumentsCheck(Filterobj)
@@ -252,57 +251,44 @@ end
 
 %% Helper Function
 % This helper function checks that the inputs are the right type and size
-function inputsCheck(fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R)
+function inputsCheck(fmodel,hmodel,modelFlag,k,xhatk,Pk,zkp1,Qk,Rkp1)
 
 % Get problem dimensions for easier checking
-Nx = size(xhatInit,1);
-Nz = size(R,1);
-Kmax = size(zhist,1);
+Nx = size(xhatk,1);
+Nz = size(Rkp1,1);
 
 % Assert that the necessary inputs have been given
 assert((~isempty(fmodel) && isa(fmodel,'char')),...
-    'batchfilter:instantiation',...
+    'stepfilter:instantiation',...
     'User must supply filter with a function name for the dynamics model')
 assert((~isempty(hmodel) && isa(hmodel,'char')),...
-    'batchfilter:instantiation',...
+    'stepfilter:instantiation',...
     'User must supply filter with a function name for the measurement model')
-assert((~isempty(kInit) && kInit >=0),...
-    'batchfilter:instantiation',...
-    'User must supply filter with an initial sample integer larger than 1')
-assert((~isempty(xhatInit) && ~isempty(PInit)),...
-    'batchfilter:instantiation',...
-    'User must supply filter with an initial a posteriori state estimate and error covariance')
-assert(~isempty(zhist),...
-    'batchfilter:instantiation',...
-    'User must supply filter with a measurement history')
-assert((~isempty(Q) && ~isempty(R)),...
-    'batchfilter:instantiation',...
-    'User must supply filter with process and measurement noise covariances')
+assert((~isempty(k) && k >=0),...
+    'stepfilter:instantiation',...
+    'User must supply filter with a sample number')
+assert((~isempty(xhatk) && ~isempty(Pk)),...
+    'stepfilter:instantiation',...
+    'User must supply filter with an a posteriori state estimate and error covariance at sample k')
+assert(~isempty(zkp1),...
+    'stepfilter:instantiation',...
+    'User must supply filter with a measurement at sample k+1')
+assert((~isempty(Qk) && ~isempty(Rkp1)),...
+    'stepfilter:instantiation',...
+    'User must supply filter with process and measurement noise covariances at sample k and k+1 respectively')
 
 % Assert that the model types are correct
 assert((strcmp(modelFlag,'CD')||strcmp(modelFlag,'DD')),...
-    'batchFilter:instantiation',...
+    'stepFilter:instantiation',...
     'The model-type flag is incorrect')
 % Assert that the error covariance matrix is sized correctly
-assert(((size(PInit,1)==Nx)&&(size(PInit,2)==Nx)),...
-    'batchFilter:instantiation',...
+assert(((size(Pk,1)==Nx)&&(size(Pk,2)==Nx)),...
+    'stepFilter:instantiation',...
     'Initial error covariance does not have the correct dimensions')
 
 % Assert that the measurement vector and covariance are correctly sized.
-assert((size(zhist,2)==Nz),...
-    'batchFilter:instantiation',...
+assert((size(zkp1,1)==Nz),...
+    'stepFilter:instantiation',...
     'Measurement vector and measurement noise covariance do not match in size')
-    
-% Assert that the control history and time vectors are correctly sized.
-if ~isempty(uhist)
-    assert((size(uhist,1)==Kmax),...
-        'batchFilter:instantiation',...
-        'Measurement and control time-histories should be the same length')
-end
-if ~isempty(thist)
-    assert((size(thist,1)==Kmax),...
-        'batchFilter:instantiation',...
-        'Measurement time-histories and time vector should be the same length')
-end
 
 end

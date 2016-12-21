@@ -5,7 +5,7 @@
 2. Finish iESRIF, review iEKF
 3. Figure out eta_nukp1 for PF and RegPF 
 4. Review PF and RegPF - why does it take so many particles to get a good estimate?
-5. build more tests. Monte Carlo tests? Inputs/options tests?
+5. build more tests. Monte Carlo tests? Inputs/options tests? One driver for each filter comparing 1step and batch. Large Driver runs combos of them
 6. Write subclass descriptions
 7. Create function to convert measurement eqns to discrete time?
 8. Gaussian Mixture or other filters?
@@ -22,3 +22,4 @@
 3. Create basic drivers for testing
 4. Add consistency output variables
 5. Reorganize directories **Revisit Later**
+6. Write single-step filter abstract class

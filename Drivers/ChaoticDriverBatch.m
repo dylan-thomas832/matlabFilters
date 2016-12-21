@@ -14,7 +14,7 @@ addPaths;
 %% User defined variables
 
 % Filter to test (EKF/iEKF/ESRIF/iESRIF/UKF/PF/RegPF/All)
-filter = 'iEKF';
+filter = 'EKF';
 % Initial state estimate supplied to filter (0)
 kInit = 0;
 % Number of Runge Kutta iterations for dynamics model conversion (5-100)
@@ -34,7 +34,7 @@ resample = 1;
 % Get problem information
 
 % Load data to be filtered
-load measdata_pfexample02
+load measdata_pfexample
 % Continuous dynamics & Discrete measurements
 ffunc = 'f_ps8prob4';
 hfunc = 'h_ps8prob4';

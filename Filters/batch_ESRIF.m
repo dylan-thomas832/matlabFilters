@@ -10,6 +10,7 @@
 
 %% TODO:
 %
+% # Figure out how to add in LTI $F$, $G$, $\Gamma$, $H$ matrices for cont & disc models
 % # Get rid of inv( ) warnings
 % # Add continuous measurement model functionality?
 
