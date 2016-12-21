@@ -24,9 +24,9 @@ Niter = 5;
 % Lower limit on Gauss-Newton search in measurement updates
 alphaLim = 0.001;
 % Number of particles to generate in PF (100 - 100000)
-Np = 500;
+Np = 1000;
 % Number of minimum effective particles (10% - 50% of Np)
-NT = 200;
+NT = 300;
 % Flag on resample scheme (0-none, 1-resample1, 2-resample2)
 resample = 1;
 
@@ -131,9 +131,7 @@ ylim([1 6])
 
 switch filter
     case 'PF'
-        break
     case 'RegPF'
-        break
     otherwise
         mean_eta = mean(filt.eta_nuhist(kInit+2:end))
         Nk = length(thist)-kInit;

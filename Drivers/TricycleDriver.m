@@ -110,9 +110,7 @@ ylim([1 6])
 
 switch filter
     case 'PF'
-        break
     case 'RegPF'
-        break
     otherwise
         mean_eta = mean(filt.eta_nuhist(kInit+2:end))
         Nk = length(thist)-kInit;
