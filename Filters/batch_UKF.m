@@ -11,6 +11,7 @@
 %
 % # Get rid of inv( ) warnings
 % # Add continuous measurement model functionality?
+% # Finish input descriptions
 
 %% UKF Class Definition
 classdef batch_UKF < batchFilter

@@ -61,18 +61,7 @@ classdef batch_iEKF < batchFilter
                 error('Not enough input arguments')
             else
                 fprintf('Instantiating batch iEKF class\n\n')
-                super_args = cell(1,12);
-                super_args{1}   = varargin{1};
-                super_args{2}   = varargin{2};
-                super_args{3}   = varargin{3};
-                super_args{4}   = varargin{4};
-                super_args{5}   = varargin{5};
-                super_args{6}   = varargin{6};
-                super_args{7}   = varargin{7};
-                super_args{8}   = varargin{8};
-                super_args{9}   = varargin{9};
-                super_args{10}  = varargin{10};
-                super_args{11}  = varargin{11};
+                super_args = varargin{1:11};
                 super_args{12}  = varargin{12:end};
             end
             % batchFilter superclass constructor
