@@ -3,9 +3,6 @@
 %
 % This class implements an extended Kalman filter.
 %
-% *Note: the user must instantiate the class with no properties, as a
-% structure with fieldnames matching all input properties, or all input
-% properties separately.*
 
 %% TODO:
 %
@@ -32,19 +29,17 @@ classdef batch_EKF < batchFilter
     methods
         % EKF constructor
         % Input order:
-        % fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R,nRK
+        % fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin
         function EKFobj = batch_EKF(varargin)
             % Prepare for superclass constructor
             if nargin == 0
-                fprintf('Instantiating empty batch EKF class\n\n')
+                fprintf('Instantiating empty batchFilter
                 super_args = {};
             elseif nargin == 1
-                fprintf('Instantiating batch EKF class\n\n')
                 super_args = varargin{1};
             elseif nargin < 11
                 error('Not enough input arguments')
             else
-                fprintf('Instantiating batch EKF class\n\n')
                 super_args = cell(1,12);
                 super_args{1}   = varargin{1};
                 super_args{2}   = varargin{2};
@@ -61,7 +56,7 @@ classdef batch_EKF < batchFilter
             end
             % batchFilter superclass constructor
             EKFobj@batchFilter(super_args{:});
-            % Only do if intantiated class is not empty
+            % Only 
             if nargin > 0
                 % Extra argument checker method
                 EKFobj = argumentsCheck(EKFobj);

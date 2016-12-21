@@ -3,6 +3,9 @@
 %
 % This class implements an iterated, extended Kalman filter.
 %
+% *Note: the user must instantiate the class with no properties, as a
+% structure with fieldnames matching all input properties, or all input
+% properties separately.*
 
 %% TODO:
 %
@@ -44,30 +47,41 @@ classdef batch_iEKF < batchFilter
 %% iEKF Methods
     methods
         % iEKF constructor
-        function iEKFobj = batch_iEKF(fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R,varargin)
+        % Input order:
+        % fmodel,hmodel,modelFlag,kInit,xhatInit,PInit,uhist,zhist,thist,Q,R,nRK,Niter,alphalim
+        function iEKFobj = batch_iEKF(varargin)
             % Prepare for superclass constructor
             if nargin == 0
-                super_args = cell(1,12);
+                fprintf('Instantiating empty batch iEKF class\n\n')
+                super_args = {};
+            elseif nargin == 1
+                fprintf('Instantiating batch iEKF class\n\n')
+                super_args = varargin{1};
             elseif nargin < 11
                 error('Not enough input arguments')
             else
-                super_args{1}   = fmodel;
-                super_args{2}   = hmodel;
-                super_args{3}   = modelFlag;
-                super_args{4}   = kInit;
-                super_args{5}   = xhatInit;
-                super_args{6}   = PInit;
-                super_args{7}   = uhist;
-                super_args{8}   = zhist;
-                super_args{9}   = thist;
-                super_args{10}  = Q;
-                super_args{11}  = R;
-                super_args{12}  = varargin;
+                fprintf('Instantiating batch iEKF class\n\n')
+                super_args = cell(1,12);
+                super_args{1}   = varargin{1};
+                super_args{2}   = varargin{2};
+                super_args{3}   = varargin{3};
+                super_args{4}   = varargin{4};
+                super_args{5}   = varargin{5};
+                super_args{6}   = varargin{6};
+                super_args{7}   = varargin{7};
+                super_args{8}   = varargin{8};
+                super_args{9}   = varargin{9};
+                super_args{10}  = varargin{10};
+                super_args{11}  = varargin{11};
+                super_args{12}  = varargin{12:end};
             end
             % batchFilter superclass constructor
             iEKFobj@batchFilter(super_args{:});
-            % Extra argument checker method
-            iEKFobj = argumentsCheck(iEKFobj);
+            % Only do if intantiated class is not empty
+            if nargin > 0
+                % Extra argument checker method
+                iEKFobj = argumentsCheck(iEKFobj);
+            end
         end
         
         % This method checks the extra input arguments for iEKF class
@@ -91,7 +105,7 @@ classdef batch_iEKF < batchFilter
                     iEKFobj.Niter = iEKFobj.optArgs{2};
                     iEKFobj.alphalim = iEKFobj.optArgs{3};
                 otherwise
-                    error('Not enough input arguments')
+                    error('Too many input arguments')
             end
             % Ensures extra input arguments have sensible values.
             if iEKFobj.nRK < 5

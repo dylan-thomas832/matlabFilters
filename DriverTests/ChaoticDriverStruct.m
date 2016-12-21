@@ -24,7 +24,7 @@ Niter = 5;
 % Lower limit on Gauss-Newton search in measurement updates
 alphaLim = 0.001;
 % Number of particles to generate in PF (100 - 100000)
-Np = 500;
+Np = 400;
 % Number of minimum effective particles (10% - 50% of Np)
 NT = 200;
 % Flag on resample scheme (0-none, 1-resample1, 2-resample2)
@@ -44,30 +44,52 @@ uhist = [];
 % No time-history
 thist = [];
 
+%% Input Structure Setup
+% Create a structure to input into the filters
+inputStruct.fmodel = ffunc;
+inputStruct.hmodel = hfunc;
+inputStruct.modelFlag = modelType;
+inputStruct.kInit = kInit;
+inputStruct.xhatInit = xhat0;
+inputStruct.PInit = P0;
+inputStruct.uhist = uhist;
+inputStruct.zhist = zkhist;
+inputStruct.thist = thist;
+inputStruct.Q = Q;
+inputStruct.R = R;
+
 %% Filter(s) Implementation
 
 switch filter
     case 'EKF'
-        filt = batch_EKF(ffunc,hfunc,modelType,kInit,xhat0,P0,uhist,zkhist,thist,Q,R,nRK);
+        inputStruct.optArgs = {nRK};
+        filt = batch_EKF({inputStruct});
         filt = filt.doFilter();
     case 'iEKF'
-        filt = batch_iEKF(ffunc,hfunc,modelType,kInit,xhat0,P0,uhist,zkhist,thist,Q,R,nRK,Niter,alphaLim);
+        inputStruct.optArgs = {nRK,Niter,alphaLim};
+        filt = batch_iEKF({inputStruct});
         filt = filt.doFilter();
     case 'ESRIF'
-        filt = batch_ESRIF(ffunc,hfunc,modelType,kInit,xhat0,P0,uhist,zkhist,thist,Q,R,nRK);
+        inputStruct.optArgs = {nRK};
+        filt = batch_ESRIF({inputStruct});
         filt = filt.doFilter();
     case 'iESRIF'
-        filt = batch_iESRIF(ffunc,hfunc,modelType,kInit,xhat0,P0,uhist,zkhist,thist,Q,R,nRK);
+        % fix
+        inputStruct.optArgs = {nRK};
+        filt = batch_iESRIF({inputStruct});
         filt = filt.doFilter();
     case 'UKF'
         % Uses optimal tuning parameters
-        filt = batch_UKF(ffunc,hfunc,modelType,kInit,xhat0,P0,uhist,zkhist,thist,Q,R,nRK);
+        inputStruct.optArgs = {nRK};
+        filt = batch_UKF({inputStruct});
         filt = filt.doFilter();
     case 'PF'
-        filt = batch_PF(ffunc,hfunc,modelType,kInit,xhat0,P0,uhist,zkhist,thist,Q,R,nRK,Np,resample);
+        inputStruct.optArgs = {nRK,Np,resample};
+        filt = batch_PF({inputStruct});
         filt = filt.doFilter();
     case 'RegPF'
-        filt = batch_RegPF(ffunc,hfunc,modelType,kInit,xhat0,P0,uhist,zkhist,thist,Q,R,nRK,Np,NT,resample);
+        inputStruct.optArgs = {nRK,Np,NT,resample};
+        filt = batch_RegPF({inputStruct});
         filt = filt.doFilter();
     case 'All'
         error('Comparison of all filters not yet implemented')

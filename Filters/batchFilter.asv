@@ -8,9 +8,7 @@
 % arguments are sensible. Each filter subclass instance is required to 
 % define the five abstract classes listed.
 %
-% *Note: the user must instantiate the class with no properties, as a
-% structure with fieldnames matching all input properties, or all input
-% properties separately.*
+% Note: the user must instantiate the class with
 
 %% TODO:
 %
@@ -195,7 +193,7 @@ classdef (Abstract) batchFilter
                
            % If user inputs properties incorrectly
            elseif nargin ~= 0
-               error('Invalid input arguments. See filter class.')
+               error('Invalid input arguments. See filter class')
            end
        end
    end

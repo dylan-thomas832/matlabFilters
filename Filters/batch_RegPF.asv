@@ -62,7 +62,7 @@ classdef batch_RegPF < batchFilter
             elseif nargin < 11
                 error('Not enough input arguments')
             else
-                fprintf('Instantiating batch RegPF class\n\n')
+                fprintf('Instantiating batch PF class\n\n')
                 super_args = cell(1,12);
                 super_args{1}   = varargin{1};
                 super_args{2}   = varargin{2};

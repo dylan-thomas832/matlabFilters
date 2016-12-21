@@ -14,7 +14,7 @@ addPaths;
 %% User defined variables
 
 % Filter to test (EKF/iEKF/ESRIF/iESRIF/UKF/PF/RegPF/All)
-filter = 'UKF';
+filter = 'RegPF';
 % Initial state estimate supplied to filter (0/1)
 kInit = 1;
 % Number of Runge Kutta iterations for dynamics model conversion (5-100)
@@ -63,36 +63,57 @@ tauspeed = 0.60; % sec
 meanspeed = 2.1; % m/s
 
 % Calculate measurement & process noise discrete covariances
-Rk = diag([sig_rhoa^2 sig_rhob^2]);
-Qk = diag([qtilsteer qtilspeed])/(thist(2)-thist(1));
+R = diag([sig_rhoa^2 sig_rhob^2]);
+Q = diag([qtilsteer qtilspeed])/(thist(2)-thist(1));
 
 % Initialization
 [xguess,Pguess] = cartInit(kInit,zhist,thist);
 
+%% Input Structure Setup
+% Create a structure to input into the filters
+inputStruct.fmodel = ffunc;
+inputStruct.hmodel = hfunc;
+inputStruct.modelFlag = modelType;
+inputStruct.kInit = kInit;
+inputStruct.xhatInit = xguess;
+inputStruct.PInit = Pguess;
+inputStruct.uhist = uhist;
+inputStruct.zhist = zhist;
+inputStruct.thist = thist;
+inputStruct.Q = Q;
+inputStruct.R = R;
 %% Filter(s) Implementation
 
 switch filter
     case 'EKF'
-        filt = batch_EKF(ffunc,hfunc,modelType,kInit,xguess,Pguess,uhist,zhist,thist,Qk,Rk,nRK);
+        inputStruct.optArgs = {nRK};
+        filt = batch_EKF({inputStruct});
         filt = filt.doFilter();
     case 'iEKF'
-        filt = batch_iEKF(ffunc,hfunc,modelType,kInit,xguess,Pguess,uhist,zhist,thist,Qk,Rk,nRK,Niter,alphaLim);
+        inputStruct.optArgs = {nRK,Niter,alphaLim};
+        filt = batch_iEKF({inputStruct});
         filt = filt.doFilter();
     case 'ESRIF'
-        filt = batch_ESRIF(ffunc,hfunc,modelType,kInit,xguess,Pguess,uhist,zhist,thist,Qk,Rk,nRK);
+        inputStruct.optArgs = {nRK};
+        filt = batch_ESRIF({inputStruct});
         filt = filt.doFilter();
     case 'iESRIF'
-        filt = batch_iESRIF(ffunc,hfunc,modelType,kInit,xguess,Pguess,uhist,zhist,thist,Qk,Rk,nRK);
+        % fix
+        inputStruct.optArgs = {nRK};
+        filt = batch_iESRIF({inputStruct});
         filt = filt.doFilter();
     case 'UKF'
         % Uses optimal tuning parameters
-        filt = batch_UKF(ffunc,hfunc,modelType,kInit,xguess,Pguess,uhist,zhist,thist,Qk,Rk,nRK);
+        inputStruct.optArgs = {nRK};
+        filt = batch_UKF({inputStruct});
         filt = filt.doFilter();
     case 'PF'
-        filt = batch_PF(ffunc,hfunc,modelType,kInit,xguess,Pguess,uhist,zhist,thist,Qk,Rk,nRK,Np,resample);
+        inputStruct.optArgs = {nRK,Np,resample};
+        filt = batch_PF({inputStruct});
         filt = filt.doFilter();
     case 'RegPF'
-        filt = batch_RegPF(ffunc,hfunc,modelType,kInit,xguess,Pguess,uhist,zhist,thist,Qk,Rk,nRK,Np,NT,resample);
+        inputStruct.optArgs = {nRK,Np,NT,resample};
+        filt = batch_RegPF({inputStruct});
         filt = filt.doFilter();
     case 'All'
         error('Comparison of all filters not yet implemented')
