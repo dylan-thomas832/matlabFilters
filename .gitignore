@@ -4,3 +4,6 @@ DriverTests/html
 Filters/html
 ModelFuncs/html
 OtherFuncs/html
+
+# Autosaves #
+*.asv
