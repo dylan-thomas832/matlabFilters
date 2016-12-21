@@ -173,14 +173,16 @@ classdef batch_RegPF < batchFilter
                 for ii = 1:RegPFobj.Np
                     % Propagate particle to sample k+1
                     vk = vik(:,ii);
-                    Xikp1(:,ii) = dynamicProp(RegPFobj,Xik(:,ii),uk,vk,tk,tkp1,k);
+                    xk_ii = Xik(:,ii);
+                    xkp1_ii = dynamicProp(RegPFobj,xk_ii,uk,vk,tk,tkp1,k);
 %                     Xikp1(:,ii) = fmodel(Xik(:,ii),uhist(kp1,:)',vik(:,ii),k);
                     %  TODO: FIX!!!
-                    [Zikp1,~] = feval(RegPFobj.hmodel,Xikp1(:,ii),kp1,0);
+                    [zkp1_ii,~] = feval(RegPFobj.hmodel,xkp1_ii,kp1,0);
                     % Dummy calc for debug
 %                     zdum = zhist(kp1,:)'-hmodel(Xikp1(:,ii),k+1);
                     % Calculate the current particle's log-weight
-                    logWbarkp1(ii) = -0.5*(zkp1-Zikp1)'*inv(RegPFobj.R)*(zkp1-Zikp1) + logWk(ii);
+                    logWbarkp1(ii) = -0.5*(zkp1-zkp1_ii)'*inv(RegPFobj.R)*(zkp1-zkp1_ii) + logWk(ii);
+                    Xikp1(:,ii) = xkp1_ii;
                 end
                 % Find imax which has a greater log-weight than every other log-weight
                 Wmax = max(logWbarkp1);
@@ -193,7 +195,7 @@ classdef batch_RegPF < batchFilter
                 % Compute Neff and determine whether to re-sample or not
                 Neff = 1/sum(Wkp1.^2);
                 if (Neff>RegPFobj.NT)
-                    return; % Neff is suddificiently large
+                    return; % Neff is sufficiently large
                 else
                     % Not enough effective particles 
                     
@@ -249,11 +251,11 @@ classdef batch_RegPF < batchFilter
         % Measurement update method at sample k+1.
         function [xhatkp1,Pkp1] = measUpdate(RegPFobj,Xikp1,Wkp1)
             % Compute xhat(k+1) and P(k+1) from weights and particles
-%             xsums = zeros(RegPFobj.nx,RegPFobj.Np);
-%             for ii = 1:RegPFobj.Np
-%                 xsums(:,ii) = Xikp1(:,ii)*Wkp1(ii);
-%             end
-            xhatkp1 = Xikp1*Wkp1';
+            xhatkp1 = zeros(RegPFobj.nx,1);
+            for ii = 1:RegPFobj.Np
+                xhatkp1 = xhatkp1 + Wkp1(ii)*Xikp1(:,ii);
+            end
+%             xhatkp1 = Xikp1*Wkp1';
             
             Psums = zeros(RegPFobj.nx,RegPFobj.nx,RegPFobj.Np);
             for ii = 1:RegPFobj.Np

@@ -203,7 +203,7 @@ classdef batch_PF < batchFilter
             if strcmp(PFobj.modelFlag,'CD')
                 xbarkp1 = c2dnonlinear(xhatk,uk,vk,tk,tkp1,PFobj.nRK,PFobj.fmodel,0);
             elseif strcmp(PFobj.modelFlag,'DD')
-                xbarkp1 = feval(PFobj.fmodel,xhatk,PFobj.uhist(k+1,:)',vk,k);
+                xbarkp1 = feval(PFobj.fmodel,xhatk,uk,vk,k);
             else
                 error('Incorrect flag for the dynamics-measurement models')
             end

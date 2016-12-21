@@ -14,19 +14,19 @@ addPaths;
 %% User defined variables
 
 % Filter to test (EKF/iEKF/ESRIF/iESRIF/UKF/PF/RegPF/All)
-filter = 'RegPF';
+filter = 'iEKF';
 % Initial state estimate supplied to filter (0)
 kInit = 0;
 % Number of Runge Kutta iterations for dynamics model conversion (5-100)
-nRK = 10;
+nRK = 50;
 % Number of measurement update iterations (1-100)
 Niter = 5;
 % Lower limit on Gauss-Newton search in measurement updates
 alphaLim = 0.001;
 % Number of particles to generate in PF (100 - 100000)
-Np = 400;
+Np = 1000;
 % Number of minimum effective particles (10% - 50% of Np)
-NT = 200;
+NT = 800;
 % Flag on resample scheme (0-none, 1-resample1, 2-resample2)
 resample = 1;
 
@@ -34,7 +34,7 @@ resample = 1;
 % Get problem information
 
 % Load data to be filtered
-load measdata_pfexample
+load measdata_pfexample02
 % Continuous dynamics & Discrete measurements
 ffunc = 'f_ps8prob4';
 hfunc = 'h_ps8prob4';
