@@ -4,10 +4,10 @@ Various filters developed in Matlab. More here later.
 
 ## Directories
 - **Data**: Holds data files and workspaces to perform tests on the filters. 
-- **DriverTests**: Holds the actual testing scripts. 
+- **Drivers**: Holds the actual testing scripts. 
 - **Filters**: Holds all implemented filters along with those still in development. 
-- **Model Funcs**: Holds all the user-defined models that are used to test the filters.
-- **Other Funcs**: Holds any other supplemental functions needed by the filters or test drivers. May be scrapped/changed later on.
+- **ModelFuncs**: Holds all the user-defined models that are used to test the filters.
+- **OtherFuncs**: Holds any other supplemental functions needed by the filters or test drivers. May be scrapped/changed later on.
 
 ## Getting Started
 
