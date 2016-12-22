@@ -58,8 +58,10 @@ classdef batch_PF < batchFilter
                 error('Not enough input arguments')
             else
                 fprintf('Instantiating batch PF class\n\n')
-                super_args = varargin{1:11};
-                super_args{12}  = varargin{12:end};
+                super_args = cell(1,12);
+                for jj = 1:12
+                    super_args{jj} = varargin{jj};
+                end
             end
             % batchFilter superclass constructor
             PFobj@batchFilter(super_args{:});
