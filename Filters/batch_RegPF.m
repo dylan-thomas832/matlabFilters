@@ -10,8 +10,8 @@
 %% TODO:
 %
 % # Still weird answers for tricycle problem
-% # Get rid of inv( ) warnings
-% # Add continuous measurement model functionality?
+% # Write resample2?
+% # Clean up and get innovation statistics
 
 %% PF Class Definition
 classdef batch_RegPF < batchFilter
@@ -21,25 +21,25 @@ classdef batch_RegPF < batchFilter
 % *Inputs:*
     properties
         
-        nRK             % scalar:
+        nRK             % Scalar >= 5:
                         %      
                         % The Runge Kutta iterations to perform for 
                         % coverting dynamics model from continuous-time 
-                        % to discrete-time. Default value is 20 RK 
+                        % to discrete-time. Default value is 10 RK 
                         % iterations.
         
-        Np              % scalar:
+        Np              % Scalar > 0:
                         %
                         % The number of particles to generate and use in
                         % estimating the state. The default value is 100.
                         
-        NT              % scalar:
+        NT              % Scalar > 1:
                         % 
                         % Lower bound on Neff which determines if
                         % regularization and resampling is performed.
-                        % Default value is 50.
+                        % Default value is 50% of Np.
                     
-        resampleFlag    % integer:
+        resampleFlag    % Integer either 0,1,2:
                         %
                         % Flag to determine which sampling algorithm to
                         % implement. Options are 0,1,2 which correspond to
@@ -82,19 +82,19 @@ classdef batch_RegPF < batchFilter
             % Switch on number of extra arguments.
             switch length(RegPFobj.optArgs)
                 case 0
-                    RegPFobj.nRK          = 20;
+                    RegPFobj.nRK          = 10;
                     RegPFobj.Np           = 100;
-                    RegPFobj.NT           = 50;
+                    RegPFobj.NT           = round(50*RegPFobj.Np);
                     RegPFobj.resampleFlag = 1;
                 case 1
                     RegPFobj.nRK          = RegPFobj.optArgs{1};
                     RegPFobj.Np           = 100;
-                    RegPFobj.NT           = 50;
+                    RegPFobj.NT           = round(50*RegPFobj.Np);
                     RegPFobj.resampleFlag = 1;
                 case 2
                     RegPFobj.nRK          = RegPFobj.optArgs{1};
                     RegPFobj.Np           = RegPFobj.optArgs{2};
-                    RegPFobj.NT           = 50;
+                    RegPFobj.NT           = round(50*RegPFobj.Np);
                     RegPFobj.resampleFlag = 1;
                 case 3
                     RegPFobj.nRK          = RegPFobj.optArgs{1};
@@ -172,7 +172,7 @@ classdef batch_RegPF < batchFilter
                     % Dummy calc for debug
 %                     zdum = zhist(kp1,:)'-hmodel(Xikp1(:,ii),k+1);
                     % Calculate the current particle's log-weight
-                    logWbarkp1(ii) = -0.5*(zkp1-zkp1_ii)'*inv(RegPFobj.R)*(zkp1-zkp1_ii) + logWk(ii);
+                    logWbarkp1(ii) = -0.5*(zkp1-zkp1_ii)'*(RegPFobj.R\(zkp1-zkp1_ii)) + logWk(ii);
                     Xikp1(:,ii) = xkp1_ii;
                 end
                 % Find imax which has a greater log-weight than every other log-weight

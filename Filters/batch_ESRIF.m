@@ -11,8 +11,6 @@
 %% TODO:
 %
 % # Figure out how to add in LTI $F$, $G$, $\Gamma$, $H$ matrices for cont & disc models
-% # Get rid of inv( ) warnings
-% # Add continuous measurement model functionality?
 
 %% ESRIF Class Deinfition
 classdef batch_ESRIF < batchFilter
@@ -22,39 +20,38 @@ classdef batch_ESRIF < batchFilter
 % *Inputs:*
     properties 
 
-        nRK         % scalar:
+        nRK         % Scalar >= 5:
                     %
                     % The Runge Kutta iterations to perform for 
                     % coverting dynamics model from continuous-time 
-                    % to discrete-time. Default value is 20 RK 
-                    % iterations.
+                    % to discrete-time. Default value is 10 RK iterations.
     end
 
 %%%
 % *Derived Properties:*
     properties
                 
-        Rvvk        % (nv)x(nv) matrix:
+        Rvvk        % (nv)x(nv) Matrix:
                     % 
                     % The square-root information process noise 
                     % covariance.
                     
-        Rxxk        % (nx)x(nx) matrix:
+        Rxxk        % (nx)x(nx) Matrix:
                     %
                     % The square-root information state error a 
                     % posteriori covariance matrix at sample k.
         
-        Ra          % (nz)x(nz) matrix:
+        Ra          % (nz)x(nz) Matrix:
                     % 
                     % The transformation matrix to ensure that the
                     % measurement noise is zero mean with identity
                     % covariance.
         
-        Rainvtr     % (nz)x(nz) matrix:
+        Rainvtr     % (nz)x(nz) Matrix:
                     % 
                     % Ra inversed and transposed - for convenience.
         
-        zahist      % (kmax)x(nz) array:
+        zahist      % (kmax)x(nz) Array:
                     %
                     % The transformed measurement state time-history 
                     % which ensures zero mean, identity covariance 
@@ -97,7 +94,7 @@ classdef batch_ESRIF < batchFilter
             % Switch on number of extra arguments.
             switch length(ESRIFobj.optArgs)
                 case 0
-                    ESRIFobj.nRK = 20;
+                    ESRIFobj.nRK = 10;
                 case 1
                     ESRIFobj.nRK = ESRIFobj.optArgs{1};
                 otherwise
@@ -187,16 +184,15 @@ classdef batch_ESRIF < batchFilter
             else
                 error('Incorrect flag for the dynamics-measurement models')
             end
-            Finv = inv(F);
             FinvGamma = F\Gamma;
             % QR Factorize
             Rbig = [ESRIFobj.Rvvk,      zeros(ESRIFobj.nv,ESRIFobj.nx); ...
                   (-ESRIFobj.Rxxk*FinvGamma),         ESRIFobj.Rxxk/F];
             [Taktr,Rdum] = qr(Rbig);
             Tak = Taktr';
-            zdum = Tak*[zeros(ESRIFobj.nv,1);ESRIFobj.Rxxk*Finv*xbarkp1];
+            zdum = Tak*[zeros(ESRIFobj.nv,1);ESRIFobj.Rxxk*(F\xbarkp1)];
             % Retrieve SRIF terms at k+1 sample
-            idumxvec = [(ESRIFobj.nv+1):(ESRIFobj.nv+ESRIFobj.nx)]';
+            idumxvec = ((ESRIFobj.nv+1):(ESRIFobj.nv+ESRIFobj.nx))';
             Rbarxxkp1 = Rdum(idumxvec,idumxvec);
             zetabarxkp1 = zdum(idumxvec,1);
         end
@@ -213,7 +209,7 @@ classdef batch_ESRIF < batchFilter
             Tbkp1 = Tbkp1tr';
             zdum = Tbkp1*[zetabarxkp1;zEKF];
             % Retrieve k+1 SRIF terms
-            idumxvec = [1:ESRIFobj.nx]';
+            idumxvec = (1:ESRIFobj.nx)';
             Rxxkp1 = Rdum(idumxvec,idumxvec);
             zetaxkp1 = zdum(idumxvec,1);
             zetarkp1 = zdum(ESRIFobj.nx+1:end);

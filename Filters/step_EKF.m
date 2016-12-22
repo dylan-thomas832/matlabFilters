@@ -45,8 +45,10 @@ classdef step_EKF < stepFilter
                 error('Not enough input arguments')
             else
                 fprintf('Instantiating step EKF class\n\n')
-                super_args = varargin{1:12};
-                super_args{13}  = varargin{13:end};
+                super_args = cell(1,13);
+                for jj = 1:13
+                    super_args{jj} = varargin{jj};
+                end
             end
             % stepFilter superclass constructor
             EKFobj@stepFilter(super_args{:});

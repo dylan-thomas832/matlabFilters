@@ -10,8 +10,6 @@
 %% TODO:
 %
 % # Determine validity of measurement update iteration (not consistent with Niter >2)
-% # Get rid of inv( ) warnings
-% # Add continuous measurement model functionality?
 
 %% iEKF Class Definition
 classdef batch_iEKF < batchFilter
@@ -21,19 +19,19 @@ classdef batch_iEKF < batchFilter
     % *Inputs:*
     properties
         
-        nRK         % scalar:
+        nRK         % Scalar >= 5:
         %
         % The Runge Kutta iterations to perform for
         % coverting dynamics model from continuous-time
-        % to discrete-time. Default value is 20 RK
+        % to discrete-time. Default value is 10 RK
         % iterations.
         
-        Niter       % scalar:
+        Niter       % Scalar >= 1:
         %
         % The number of measurement update iterations to
         % run through. Default value is 5.
         
-        alphalim    % scalar:
+        alphalim    % Scalar between 1 and 0:
         %
         % The lower limit for the Gauss-Newton step
         % change. This limit decreases until the cost
@@ -61,9 +59,10 @@ classdef batch_iEKF < batchFilter
                 error('Not enough input arguments')
             else
                 super_args = cell(1,12);
-                for jj = 1:12
+                for jj = 1:11
                     super_args{jj} = varargin{jj};
                 end
+                super_args{12} = varargin{12:end};
             end
             % batchFilter superclass constructor
             iEKFobj@batchFilter(super_args{:});
@@ -79,7 +78,7 @@ classdef batch_iEKF < batchFilter
             % Switch on number of extra arguments.
             switch length(iEKFobj.optArgs)
                 case 0
-                    iEKFobj.nRK = 20;
+                    iEKFobj.nRK = 10;
                     iEKFobj.Niter = 5;
                     iEKFobj.alphalim = 0.01;
                 case 1
@@ -186,7 +185,7 @@ classdef batch_iEKF < batchFilter
                 xhatkp1 = xbarkp1 + Wkp1*nukp1;
                 Pkp1 = Pbarkp1 - Wkp1*Skp1*(Wkp1');
                 % Innovation statistics
-                eta_nukp1 = nukp1'*inv(Skp1)*nukp1;
+                eta_nukp1 = nukp1'*(Skp1\nukp1);
             
             % Iterated measurement update
             else
@@ -195,8 +194,8 @@ classdef batch_iEKF < batchFilter
                 xhati = xbarkp1;
                 % Define cost function to minimize
                 Jcfunc = @(xkp1,hkp1) ...
-                    (xkp1-xbarkp1)'*inv(Pbarkp1)*(xkp1-xbarkp1) ...
-                    + (zkp1-hkp1)'*inv(iEKFobj.R)*(zkp1-hkp1);
+                    (xkp1-xbarkp1)'*(Pbarkp1\(xkp1-xbarkp1)) ...
+                    + (zkp1-hkp1)'*(iEKFobj.R\(zkp1-hkp1));
                 % Loop through Niter iterations
                 for ii = 1:iEKFobj.Niter
                     % Linearize at ith MAP state estimate.
@@ -204,9 +203,10 @@ classdef batch_iEKF < batchFilter
                     % Calculate cost function at current state estimate
                     Jold = Jcfunc(xhati,zbari);
                     % ith MAP error covariance.
-                    Pi = inv(inv(Pbarkp1)+(Hi')*inv(iEKFobj.R)*Hi);
+                    invPi = inv(Pbarkp1)+(Hi')*(iEKFobj.R\Hi);
+%                     Pi = inv(inv(Pbarkp1)+(Hi')*(iEKFobj.R\Hi));
                     % (i+1)th calculated MAP state estimate
-                    xhatip1 = xhati + Pi*(Hi')*inv(iEKFobj.R)*(zkp1-zbari) - Pi*inv(Pbarkp1)*(xhati-xbarkp1);
+                    xhatip1 = xhati + invPi\(Hi')*(iEKFobj.R\(zkp1-zbari)) - invPi\inv(Pbarkp1)*(xhati-xbarkp1);
                     
                     % NOTE: The calculated (i+1)th MAP state estimate may
                     % not necessarily decrease the cost function, so we
@@ -226,9 +226,11 @@ classdef batch_iEKF < batchFilter
                         % Decrease alpha
                         alpha = alpha/2;
                     end
+                    % Debug print
 %                     fprintf('alpha at term: %4.5f\n',alpha)
                     % Check norm condition so that iterations aren't wasteful
                     if (norm(xhati-xhatip1new)/norm(xhati) < 1e-12)
+                        % Debug print
 %                         fprintf('norm condition reached at iter: %i\n',ii)
                         break
                     end
@@ -241,12 +243,13 @@ classdef batch_iEKF < batchFilter
                 
                 % The a posteriori state estimate and error covariance
                 xhatkp1 = xhatip1new;
-                Pkp1 = inv(inv(Pbarkp1)+(Hip1')*inv(iEKFobj.R)*Hip1);
+                invPkp1 = inv(Pbarkp1)+(Hip1')*(iEKFobj.R\Hip1);
+                Pkp1 = invPkp1^-1;
                 % Innovations and innovation statistics
                 nukp1 = zkp1-zbarip1;
-                Skp1 = Hip1*Pkp1*(Hip1') + iEKFobj.R;
+                Skp1 = Hip1*(invPkp1\(Hip1')) + iEKFobj.R;
                 %                 Skp1 = Hip1*Pbarkp1*(Hip1') + iEKFobj.R;
-                eta_nukp1 = nukp1'*inv(Skp1)*nukp1;
+                eta_nukp1 = nukp1'*(Skp1\nukp1);
             end
         end
     end

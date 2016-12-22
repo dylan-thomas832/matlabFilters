@@ -11,9 +11,6 @@
 %% TODO:
 % 
 % # Figure out how to add in LTI $F$, $G$, $\Gamma$, $H$ matrices for cont & disc models
-% # Demystify beginning sample/tk = 0 problem (kinit maybe?)
-% # Get rid of inv( ) warnings
-% # Add continuous measurement model functionality?
 
 %% LKF Class Definition
 classdef batch_LKF < batchFilter
@@ -23,11 +20,11 @@ classdef batch_LKF < batchFilter
 % *Inputs:*
     properties
         
-        nRK         % scalar:
+        nRK         % Scalar >= 5:
                     %
                     % The Runge Kutta iterations to perform for 
                     % coverting dynamics model from continuous-time 
-                    % to discrete-time. Default value is 20 RK 
+                    % to discrete-time. Default value is 10 RK 
                     % iterations.
     end
     
@@ -67,7 +64,7 @@ classdef batch_LKF < batchFilter
             % Switch on number of extra arguments.
             switch length(LKFobj.optArgs)
                 case 0
-                    LKFobj.nRK = 20;
+                    LKFobj.nRK = 10;
                 case 1
                     LKFobj.nRK = LKFobj.optArgs{1};
                 otherwise
@@ -156,7 +153,7 @@ classdef batch_LKF < batchFilter
             xhatkp1 = xbarkp1 + Wkp1*nukp1;
             Pkp1 = Pbarkp1 - Wkp1*Skp1*(Wkp1');
             % Innovation statistics
-            eta_nukp1 = nukp1'*inv(Skp1)*nukp1;
+            eta_nukp1 = nukp1'*(Skp1\nukp1);
         end
     end
 end

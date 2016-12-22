@@ -7,11 +7,6 @@
 % structure with fieldnames matching all input properties, or all input
 % properties separately.*
 
-%% TODO:
-%
-% # Get rid of inv( ) warnings
-% # Add continuous measurement model functionality?
-
 %% EKF Class Definition
 classdef batch_EKF < batchFilter
 % Inherits batchFilter abstract class
@@ -20,11 +15,11 @@ classdef batch_EKF < batchFilter
 % *Inputs:*
     properties
         
-        nRK         % scalar:
+        nRK         % Scalar >= 5:
                     %
                     % The Runge Kutta iterations to perform for 
                     % coverting dynamics model from continuous-time 
-                    % to discrete-time. Default value is 20 RK 
+                    % to discrete-time. Default value is 10 RK 
                     % iterations.
     end
     
@@ -64,7 +59,7 @@ classdef batch_EKF < batchFilter
             % Switch on number of extra arguments.
             switch length(EKFobj.optArgs)
                 case 0
-                    EKFobj.nRK = 20;
+                    EKFobj.nRK = 10;
                 case 1
                     EKFobj.nRK = EKFobj.optArgs{1};
                 otherwise
@@ -153,7 +148,7 @@ classdef batch_EKF < batchFilter
             xhatkp1 = xbarkp1 + Wkp1*nukp1;
             Pkp1 = Pbarkp1 - Wkp1*Skp1*(Wkp1');
             % Innovation statistics
-            eta_nukp1 = nukp1'*inv(Skp1)*nukp1;
+            eta_nukp1 = nukp1'*(Skp1\nukp1);
         end
     end
 end

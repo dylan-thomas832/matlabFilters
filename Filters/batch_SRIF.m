@@ -10,9 +10,6 @@
 %% TODO:
 %
 % # Figure out how to add in LTI $F$, $G$, $\Gamma$, $H$ matrices for cont & disc models
-% # Demystify beginning sample/tk = 0 problem (kinit maybe?)
-% # Get rid of inv( ) warnings
-% # Add continuous measurement model functionality?
 
 %% SRIF Class Deinfition
 classdef batch_SRIF < batchFilter
@@ -22,11 +19,11 @@ classdef batch_SRIF < batchFilter
 % *Inputs:*
     properties 
 
-        nRK         % scalar:
+        nRK         % Scalar >= 5:
                     %
                     % The Runge Kutta iterations to perform for 
                     % coverting dynamics model from continuous-time 
-                    % to discrete-time. Default value is 20 RK 
+                    % to discrete-time. Default value is 10 RK 
                     % iterations.
     end
 
@@ -34,27 +31,27 @@ classdef batch_SRIF < batchFilter
 % *Derived Properties:*
     properties
                 
-        Rvvk        % (nv)x(nv) matrix:
+        Rvvk        % (nv)x(nv) Matrix:
                     % 
                     % The square-root information process noise 
                     % covariance.
                     
-        Rxxk        % (nx)x(nx) matrix:
+        Rxxk        % (nx)x(nx) Matrix:
                     %
                     % The square-root information state error a 
                     % posteriori covariance matrix at sample k.
         
-        Ra          % (nz)x(nz) matrix:
+        Ra          % (nz)x(nz) Matrix:
                     % 
                     % The transformation matrix to ensure that the
                     % measurement noise is zero mean with identity
                     % covariance.
         
-        Rainvtr     % (nz)x(nz) matrix:
+        Rainvtr     % (nz)x(nz) Matrix:
                     % 
                     % Ra inversed and transposed - for convenience.
         
-        zahist      % (kmax)x(nz) array:
+        zahist      % (kmax)x(nz) Array:
                     %
                     % The transformed measurement state time-history 
                     % which ensures zero mean, identity covariance 
@@ -97,7 +94,7 @@ classdef batch_SRIF < batchFilter
             % Switch on number of extra arguments.
             switch length(SRIFobj.optArgs)
                 case 0
-                    SRIFobj.nRK = 20;
+                    SRIFobj.nRK = 10;
                 case 1
                     SRIFobj.nRK = SRIFobj.optArgs{1};
                 otherwise
@@ -187,16 +184,15 @@ classdef batch_SRIF < batchFilter
             else
                 error('Incorrect flag for the dynamics-measurement models')
             end
-            Finv = inv(F);
             FinvGamma = F\Gamma;
             % QR Factorize
             Rbig = [SRIFobj.Rvvk,      zeros(SRIFobj.nv,SRIFobj.nx); ...
                   (-SRIFobj.Rxxk*FinvGamma),         SRIFobj.Rxxk/F];
             [Taktr,Rdum] = qr(Rbig);
             Tak = Taktr';
-            zdum = Tak*[zeros(SRIFobj.nv,1);SRIFobj.Rxxk*Finv*xbarkp1];
+            zdum = Tak*[zeros(SRIFobj.nv,1);SRIFobj.Rxxk*(F\xbarkp1)];
             % Retrieve SRIF terms at k+1 sample
-            idumxvec = [(SRIFobj.nv+1):(SRIFobj.nv+SRIFobj.nx)]';
+            idumxvec = ((SRIFobj.nv+1):(SRIFobj.nv+SRIFobj.nx))';
             Rbarxxkp1 = Rdum(idumxvec,idumxvec);
             zetabarxkp1 = zdum(idumxvec,1);
         end
@@ -213,7 +209,7 @@ classdef batch_SRIF < batchFilter
             Tbkp1 = Tbkp1tr';
             zdum = Tbkp1*[zetabarxkp1;zEKF];
             % Retrieve k+1 SRIF terms
-            idumxvec = [1:SRIFobj.nx]';
+            idumxvec = (1:SRIFobj.nx)';
             Rxxkp1 = Rdum(idumxvec,idumxvec);
             zetaxkp1 = zdum(idumxvec,1);
             zetarkp1 = zdum(SRIFobj.nx+1:end);

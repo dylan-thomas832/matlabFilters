@@ -10,8 +10,8 @@
 %% TODO:
 %
 % # Still weird answers for tricycle problem
-% # Get rid of inv( ) warnings
-% # Add continuous measurement model functionality?
+% # Write resample2?
+% # Clean up and get innovation statistics
 
 %% PF Class Definition
 classdef batch_PF < batchFilter
@@ -21,19 +21,19 @@ classdef batch_PF < batchFilter
 % *Inputs:*
     properties
         
-        nRK             % scalar:
+        nRK             % Scalar >= 5:
                         %      
                         % The Runge Kutta iterations to perform for 
                         % coverting dynamics model from continuous-time 
-                        % to discrete-time. Default value is 20 RK 
+                        % to discrete-time. Default value is 10 RK 
                         % iterations.
         
-        Np              % scalar:
+        Np              % Scalar > 0:
                         %
                         % The number of particles to generate and use in
                         % estimating the state. The default value is 100.
                     
-        resampleFlag    % integer:
+        resampleFlag    % Integer either 0,1,2:
                         %
                         % Flag to determine which sampling algorithm to
                         % implement. Options are 0,1,2 which correspond to
@@ -77,7 +77,7 @@ classdef batch_PF < batchFilter
             % Switch on number of extra arguments.
             switch length(PFobj.optArgs)
                 case 0
-                    PFobj.nRK          = 20;
+                    PFobj.nRK          = 10;
                     PFobj.Np           = 100;
                     PFobj.resampleFlag = 1;
                 case 1
@@ -158,7 +158,7 @@ classdef batch_PF < batchFilter
                     % Dummy calc for debug
 %                     zdum = zhist(kp1,:)'-hmodel(Xikp1(:,ii),k+1);
                     % Calculate the current particle's log-weight
-                    logWbarkp1(ii) = -0.5*(zkp1-zkp1_ii)'*inv(PFobj.R)*(zkp1-zkp1_ii) + logWk(ii);
+                    logWbarkp1(ii) = -0.5*(zkp1-zkp1_ii)'*(PFobj.R\(zkp1-zkp1_ii)) + logWk(ii);
                     Xikp1(:,ii) = xkp1_ii;
                 end
                 % Find imax which has a greater log-weight than every other log-weight

@@ -11,8 +11,6 @@
 %% TODO:
 %
 % # Determine validity of measurement update iteration (not consistent with Niter >2)
-% # Get rid of inv( ) warnings
-% # Add continuous measurement model functionality?
 
 %% iESRIF Class Deinfition
 classdef batch_iESRIF < batchFilter
@@ -22,11 +20,11 @@ classdef batch_iESRIF < batchFilter
 % *Inputs:*
     properties 
 
-        nRK         % scalar:
+        nRK         % Scalar >= 5:
                     %
                     % The Runge Kutta iterations to perform for 
                     % coverting dynamics model from continuous-time 
-                    % to discrete-time. Default value is 20 RK 
+                    % to discrete-time. Default value is 10 RK 
                     % iterations.
     end
 
@@ -97,7 +95,7 @@ classdef batch_iESRIF < batchFilter
             % Switch on number of extra arguments.
             switch length(iESRIFobj.optArgs)
                 case 0
-                    iESRIFobj.nRK = 20;
+                    iESRIFobj.nRK = 10;
                 case 1
                     iESRIFobj.nRK = iESRIFobj.optArgs{1};
                 otherwise
@@ -187,16 +185,15 @@ classdef batch_iESRIF < batchFilter
             else
                 error('Incorrect flag for the dynamics-measurement models')
             end
-            Finv = inv(F);
             FinvGamma = F\Gamma;
             % QR Factorize
             Rbig = [iESRIFobj.Rvvk,      zeros(iESRIFobj.nv,iESRIFobj.nx); ...
                   (-iESRIFobj.Rxxk*FinvGamma),         iESRIFobj.Rxxk/F];
             [Taktr,Rdum] = qr(Rbig);
             Tak = Taktr';
-            zdum = Tak*[zeros(iESRIFobj.nv,1);iESRIFobj.Rxxk*Finv*xbarkp1];
+            zdum = Tak*[zeros(iESRIFobj.nv,1);iESRIFobj.Rxxk*(F\xbarkp1)];
             % Retrieve SRIF terms at k+1 sample
-            idumxvec = [(iESRIFobj.nv+1):(iESRIFobj.nv+iESRIFobj.nx)]';
+            idumxvec = ((iESRIFobj.nv+1):(iESRIFobj.nv+iESRIFobj.nx))';
             Rbarxxkp1 = Rdum(idumxvec,idumxvec);
             zetabarxkp1 = zdum(idumxvec,1);
         end
@@ -213,7 +210,7 @@ classdef batch_iESRIF < batchFilter
             Tbkp1 = Tbkp1tr';
             zdum = Tbkp1*[zetabarxkp1;zEKF];
             % Retrieve k+1 SRIF terms
-            idumxvec = [1:iESRIFobj.nx]';
+            idumxvec = (1:iESRIFobj.nx)';
             Rxxkp1 = Rdum(idumxvec,idumxvec);
             zetaxkp1 = zdum(idumxvec,1);
             zetarkp1 = zdum(iESRIFobj.nx+1:end);
