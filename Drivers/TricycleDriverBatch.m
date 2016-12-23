@@ -14,11 +14,11 @@ addPaths;
 %% User defined variables
 
 % Filter to test (EKF/iEKF/ESRIF/iESRIF/UKF/PF/RegPF/All)
-filter = 'UKF';
+filter = 'iEKF';
 % Initial state estimate supplied to filter (0/1)
-kInit = 1;
+kInit = 0;
 % Number of Runge Kutta iterations for dynamics model conversion (5-100)
-nRK = 50;
+nRK = 10;
 % Number of measurement update iterations (1-100)
 Niter = 10;
 % Lower limit on Gauss-Newton search in measurement updates
@@ -99,7 +99,7 @@ switch filter
         filt = filt.doFilter();
     case 'iESRIF'
         % fix
-        inputStruct.optArgs = {nRK};
+        inputStruct.optArgs = {nRK,Niter,alphaLim};
         filt = batch_iESRIF({inputStruct});
         filt = filt.doFilter();
     case 'UKF'

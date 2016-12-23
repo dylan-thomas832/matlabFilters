@@ -125,12 +125,6 @@ classdef batch_ESRIF < batchFilter
             else
                 tk = ESRIFobj.thist(ESRIFobj.kInit);
             end
-        end
-        
-        % This method performs ESRIF class filter estimation
-        function ESRIFobj = doFilter(ESRIFobj)
-            % Filter initialization method
-            [ESRIFobj,xhatk,tk,vk] = initFilter(ESRIFobj);
             
             % Determine the square-root information matrix for the process 
             % noise, and transform the measurements to have an error with 
@@ -144,6 +138,13 @@ classdef batch_ESRIF < batchFilter
             % first a posteriori estimate and its error covariance matrix.
             ESRIFobj.Rxxk = inv(chol(ESRIFobj.PInit)');
             
+        end
+        
+        % This method performs ESRIF class filter estimation
+        function ESRIFobj = doFilter(ESRIFobj)
+            % Filter initialization method
+            [ESRIFobj,xhatk,tk,vk] = initFilter(ESRIFobj);
+            
             % Main filter loop.
             for k = ESRIFobj.kInit:(ESRIFobj.kmax-1)
                 % Prepare loop
@@ -152,10 +153,8 @@ classdef batch_ESRIF < batchFilter
                 uk = ESRIFobj.uhist(kp1,:)';
                 
                 % Perform dynamic propagation and measurement update
-                [xbarkp1,zetabarxkp1,Rbarxxkp1] = ...
-                    dynamicProp(ESRIFobj,xhatk,uk,vk,tk,tkp1,k);
-                [zetaxkp1,Rxxkp1,zetarkp1] = ...
-                    measUpdate(ESRIFobj,xbarkp1,zetabarxkp1,Rbarxxkp1,kp1);
+                [xbarkp1,zetabarxkp1,Rbarxxkp1] = dynamicProp(ESRIFobj,xhatk,uk,vk,tk,tkp1,k);
+                [zetaxkp1,Rxxkp1,zetarkp1] = measUpdate(ESRIFobj,xbarkp1,zetabarxkp1,Rbarxxkp1,kp1);
                 
                 % Compute the state estimate and covariance at sample k + 1
                 Rxxkp1inv = inv(Rxxkp1);
@@ -184,10 +183,9 @@ classdef batch_ESRIF < batchFilter
             else
                 error('Incorrect flag for the dynamics-measurement models')
             end
-            FinvGamma = F\Gamma;
             % QR Factorize
             Rbig = [ESRIFobj.Rvvk,      zeros(ESRIFobj.nv,ESRIFobj.nx); ...
-                  (-ESRIFobj.Rxxk*FinvGamma),         ESRIFobj.Rxxk/F];
+                  (-ESRIFobj.Rxxk*(F\Gamma)),         ESRIFobj.Rxxk/F];
             [Taktr,Rdum] = qr(Rbig);
             Tak = Taktr';
             zdum = Tak*[zeros(ESRIFobj.nv,1);ESRIFobj.Rxxk*(F\xbarkp1)];
