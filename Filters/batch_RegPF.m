@@ -10,8 +10,8 @@
 %% TODO:
 %
 % # Still weird answers for tricycle problem
-% # Get rid of inv( ) warnings
-% # Add continuous measurement model functionality?
+% # Write resample2?
+% # Clean up and get innovation statistics
 
 %% PF Class Definition
 classdef batch_RegPF < batchFilter
@@ -21,25 +21,25 @@ classdef batch_RegPF < batchFilter
 % *Inputs:*
     properties
         
-        nRK             % scalar:
+        nRK             % Scalar >= 5:
                         %      
                         % The Runge Kutta iterations to perform for 
                         % coverting dynamics model from continuous-time 
-                        % to discrete-time. Default value is 20 RK 
+                        % to discrete-time. Default value is 10 RK 
                         % iterations.
         
-        Np              % scalar:
+        Np              % Scalar > 0:
                         %
                         % The number of particles to generate and use in
                         % estimating the state. The default value is 100.
                         
-        NT              % scalar:
+        NT              % Scalar > 1:
                         % 
                         % Lower bound on Neff which determines if
                         % regularization and resampling is performed.
-                        % Default value is 50.
+                        % Default value is 50% of Np.
                     
-        resampleFlag    % integer:
+        resampleFlag    % Integer either 0,1,2:
                         %
                         % Flag to determine which sampling algorithm to
                         % implement. Options are 0,1,2 which correspond to
@@ -64,18 +64,9 @@ classdef batch_RegPF < batchFilter
             else
                 fprintf('Instantiating batch RegPF class\n\n')
                 super_args = cell(1,12);
-                super_args{1}   = varargin{1};
-                super_args{2}   = varargin{2};
-                super_args{3}   = varargin{3};
-                super_args{4}   = varargin{4};
-                super_args{5}   = varargin{5};
-                super_args{6}   = varargin{6};
-                super_args{7}   = varargin{7};
-                super_args{8}   = varargin{8};
-                super_args{9}   = varargin{9};
-                super_args{10}  = varargin{10};
-                super_args{11}  = varargin{11};
-                super_args{12}  = varargin{12:end};
+                for jj = 1:12
+                    super_args{jj} = varargin{jj};
+                end
             end
             % batchFilter superclass constructor
             RegPFobj@batchFilter(super_args{:});
@@ -91,19 +82,19 @@ classdef batch_RegPF < batchFilter
             % Switch on number of extra arguments.
             switch length(RegPFobj.optArgs)
                 case 0
-                    RegPFobj.nRK          = 20;
+                    RegPFobj.nRK          = 10;
                     RegPFobj.Np           = 100;
-                    RegPFobj.NT           = 50;
+                    RegPFobj.NT           = round(50*RegPFobj.Np);
                     RegPFobj.resampleFlag = 1;
                 case 1
                     RegPFobj.nRK          = RegPFobj.optArgs{1};
                     RegPFobj.Np           = 100;
-                    RegPFobj.NT           = 50;
+                    RegPFobj.NT           = round(50*RegPFobj.Np);
                     RegPFobj.resampleFlag = 1;
                 case 2
                     RegPFobj.nRK          = RegPFobj.optArgs{1};
                     RegPFobj.Np           = RegPFobj.optArgs{2};
-                    RegPFobj.NT           = 50;
+                    RegPFobj.NT           = round(50*RegPFobj.Np);
                     RegPFobj.resampleFlag = 1;
                 case 3
                     RegPFobj.nRK          = RegPFobj.optArgs{1};
@@ -173,14 +164,16 @@ classdef batch_RegPF < batchFilter
                 for ii = 1:RegPFobj.Np
                     % Propagate particle to sample k+1
                     vk = vik(:,ii);
-                    Xikp1(:,ii) = dynamicProp(RegPFobj,Xik(:,ii),uk,vk,tk,tkp1,k);
+                    xk_ii = Xik(:,ii);
+                    xkp1_ii = dynamicProp(RegPFobj,xk_ii,uk,vk,tk,tkp1,k);
 %                     Xikp1(:,ii) = fmodel(Xik(:,ii),uhist(kp1,:)',vik(:,ii),k);
                     %  TODO: FIX!!!
-                    [Zikp1,~] = feval(RegPFobj.hmodel,Xikp1(:,ii),kp1,0);
+                    [zkp1_ii,~] = feval(RegPFobj.hmodel,xkp1_ii,kp1,0);
                     % Dummy calc for debug
 %                     zdum = zhist(kp1,:)'-hmodel(Xikp1(:,ii),k+1);
                     % Calculate the current particle's log-weight
-                    logWbarkp1(ii) = -0.5*(zkp1-Zikp1)'*inv(RegPFobj.R)*(zkp1-Zikp1) + logWk(ii);
+                    logWbarkp1(ii) = -0.5*(zkp1-zkp1_ii)'*(RegPFobj.R\(zkp1-zkp1_ii)) + logWk(ii);
+                    Xikp1(:,ii) = xkp1_ii;
                 end
                 % Find imax which has a greater log-weight than every other log-weight
                 Wmax = max(logWbarkp1);
@@ -193,7 +186,7 @@ classdef batch_RegPF < batchFilter
                 % Compute Neff and determine whether to re-sample or not
                 Neff = 1/sum(Wkp1.^2);
                 if (Neff>RegPFobj.NT)
-                    return; % Neff is suddificiently large
+                    return; % Neff is sufficiently large
                 else
                     % Not enough effective particles 
                     
@@ -249,11 +242,11 @@ classdef batch_RegPF < batchFilter
         % Measurement update method at sample k+1.
         function [xhatkp1,Pkp1] = measUpdate(RegPFobj,Xikp1,Wkp1)
             % Compute xhat(k+1) and P(k+1) from weights and particles
-%             xsums = zeros(RegPFobj.nx,RegPFobj.Np);
-%             for ii = 1:RegPFobj.Np
-%                 xsums(:,ii) = Xikp1(:,ii)*Wkp1(ii);
-%             end
-            xhatkp1 = Xikp1*Wkp1';
+            xhatkp1 = zeros(RegPFobj.nx,1);
+            for ii = 1:RegPFobj.Np
+                xhatkp1 = xhatkp1 + Wkp1(ii)*Xikp1(:,ii);
+            end
+%             xhatkp1 = Xikp1*Wkp1';
             
             Psums = zeros(RegPFobj.nx,RegPFobj.nx,RegPFobj.Np);
             for ii = 1:RegPFobj.Np

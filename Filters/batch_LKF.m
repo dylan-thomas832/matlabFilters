@@ -11,9 +11,6 @@
 %% TODO:
 % 
 % # Figure out how to add in LTI $F$, $G$, $\Gamma$, $H$ matrices for cont & disc models
-% # Demystify beginning sample/tk = 0 problem (kinit maybe?)
-% # Get rid of inv( ) warnings
-% # Add continuous measurement model functionality?
 
 %% LKF Class Definition
 classdef batch_LKF < batchFilter
@@ -23,11 +20,11 @@ classdef batch_LKF < batchFilter
 % *Inputs:*
     properties
         
-        nRK         % scalar:
+        nRK         % Scalar >= 5:
                     %
                     % The Runge Kutta iterations to perform for 
                     % coverting dynamics model from continuous-time 
-                    % to discrete-time. Default value is 20 RK 
+                    % to discrete-time. Default value is 10 RK 
                     % iterations.
     end
     
@@ -49,18 +46,9 @@ classdef batch_LKF < batchFilter
             else
                 fprintf('Instantiating batch LKF class\n\n')
                 super_args = cell(1,12);
-                super_args{1}   = varargin{1};
-                super_args{2}   = varargin{2};
-                super_args{3}   = varargin{3};
-                super_args{4}   = varargin{4};
-                super_args{5}   = varargin{5};
-                super_args{6}   = varargin{6};
-                super_args{7}   = varargin{7};
-                super_args{8}   = varargin{8};
-                super_args{9}   = varargin{9};
-                super_args{10}  = varargin{10};
-                super_args{11}  = varargin{11};
-                super_args{12}  = varargin{12:end};
+                for jj = 1:12
+                    super_args{jj} = varargin{jj};
+                end
             end
             % batchFilter superclass constructor
             LKFobj@batchFilter(super_args{:});
@@ -76,7 +64,7 @@ classdef batch_LKF < batchFilter
             % Switch on number of extra arguments.
             switch length(LKFobj.optArgs)
                 case 0
-                    LKFobj.nRK = 20;
+                    LKFobj.nRK = 10;
                 case 1
                     LKFobj.nRK = LKFobj.optArgs{1};
                 otherwise
@@ -165,7 +153,7 @@ classdef batch_LKF < batchFilter
             xhatkp1 = xbarkp1 + Wkp1*nukp1;
             Pkp1 = Pbarkp1 - Wkp1*Skp1*(Wkp1');
             % Innovation statistics
-            eta_nukp1 = nukp1'*inv(Skp1)*nukp1;
+            eta_nukp1 = nukp1'*(Skp1\nukp1);
         end
     end
 end

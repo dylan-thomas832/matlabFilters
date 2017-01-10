@@ -7,11 +7,6 @@
 % structure with fieldnames matching all input properties, or all input
 % properties separately.*
 
-%% TODO:
-%
-% # Get rid of inv( ) warnings
-% # Add continuous measurement model functionality?
-
 %% UKF Class Definition
 classdef batch_UKF < batchFilter
 % Inherits batchFilter abstract class
@@ -20,20 +15,34 @@ classdef batch_UKF < batchFilter
 % *Inputs:*
     properties
         
-        nRK         % scalar:
+        nRK         % Scalar >= 5:
                     %
                     % The Runge Kutta iterations to perform for 
                     % coverting dynamics model from continuous-time 
-                    % to discrete-time. Default value is 20 RK 
+                    % to discrete-time. Default value is 10 RK 
                     % iterations.
                     
-        alpha
+        alpha       % Scalar between 0 and 1:
+                    % 
+                    % UKF tuning parameter that determines the sigma points
+                    % spread. Default value is 0.01.
         
-        beta
+        beta        % Scalar usually 2:
+                    % 
+                    % UKF tuning parameter. If the state is Gaussian, then
+                    % a value of 2 is considered optimal. Default value is
+                    % 2.
         
-        kappa
+        kappa       % Scalar:
+                    % 
+                    % UKF tuning paramter that is recommended to be equal
+                    % to 3 minus the number of states. Default value is
+                    % 3-nx.
         
-        lambda
+        lambda      % Scalar:
+                    %
+                    % UKF tuning parameter. The recommended equation from
+                    % the UKF paper is used. Default is the equation.
     end
     
 %% UKF Methods
@@ -54,18 +63,9 @@ classdef batch_UKF < batchFilter
             else
                 fprintf('Instantiating batch UKF class\n\n')
                 super_args = cell(1,12);
-                super_args{1}   = varargin{1};
-                super_args{2}   = varargin{2};
-                super_args{3}   = varargin{3};
-                super_args{4}   = varargin{4};
-                super_args{5}   = varargin{5};
-                super_args{6}   = varargin{6};
-                super_args{7}   = varargin{7};
-                super_args{8}   = varargin{8};
-                super_args{9}   = varargin{9};
-                super_args{10}  = varargin{10};
-                super_args{11}  = varargin{11};
-                super_args{12}  = varargin{12:end};
+                for jj = 1:12
+                    super_args{jj} = varargin{jj};
+                end
             end
             % batchFilter superclass constructor
             UKFobj@batchFilter(super_args{:});
@@ -269,11 +269,11 @@ classdef batch_UKF < batchFilter
         end
         
         % Measurement update method at sample k+1 using LMMSE equations.
-        function [xhatkp1,Pkp1,eta_nukp1] = measUpdate(UKFobj,xbar,zbar,zkp1,Pbar,Pxz,Pzz)
+        function [xhatkp1,Pkp1,eta_nukp1] = measUpdate(~,xbar,zbar,zkp1,Pbar,Pxz,Pzz)
             % Complete Kalman Filter Update by calculating the KF gain and innovations
             Wkp1      = Pxz/Pzz;
             nukp1     = zkp1 - zbar;
-            eta_nukp1 = nukp1'*inv(Pzz)*nukp1;
+            eta_nukp1 = nukp1'*(Pzz\nukp1);
             % Calculate the a posteriori state estimate & covariance at sample k+1.
             xhatkp1 = xbar + Wkp1*nukp1;
             Pkp1    = Pbar - Wkp1*(Pxz');

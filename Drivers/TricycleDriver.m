@@ -14,13 +14,13 @@ addPaths;
 %% User defined variables
 
 % Filter to test (EKF/iEKF/ESRIF/iESRIF/UKF/PF/RegPF/All)
-filter = 'UKF';
+filter = 'iEKF';
 % Initial state estimate supplied to filter (0/1)
-kInit = 1;
+kInit = 0;
 % Number of Runge Kutta iterations for dynamics model conversion (5-100)
-nRK = 10;
+nRK = 50;
 % Number of measurement update iterations (1-100)
-Niter = 5;
+Niter = 1;
 % Lower limit on Gauss-Newton search in measurement updates
 alphaLim = 0.001;
 % Number of particles to generate in PF (100 - 100000)
@@ -110,9 +110,7 @@ ylim([1 6])
 
 switch filter
     case 'PF'
-        break
     case 'RegPF'
-        break
     otherwise
         mean_eta = mean(filt.eta_nuhist(kInit+2:end))
         Nk = length(thist)-kInit;

@@ -8,12 +8,6 @@
 % structure with fieldnames matching all input properties, or all input
 % properties separately.*
 
-%% TODO:
-%
-% # Determine validity of measurement update iteration (not consistent with Niter >2)
-% # Get rid of inv( ) warnings
-% # Add continuous measurement model functionality?
-
 %% iESRIF Class Deinfition
 classdef batch_iESRIF < batchFilter
 % Inherits batchFilter abstract class
@@ -22,12 +16,27 @@ classdef batch_iESRIF < batchFilter
 % *Inputs:*
     properties 
 
-        nRK         % scalar:
+        nRK         % Scalar >= 5:
                     %
                     % The Runge Kutta iterations to perform for 
                     % coverting dynamics model from continuous-time 
-                    % to discrete-time. Default value is 20 RK 
+                    % to discrete-time. Default value is 10 RK 
                     % iterations.
+                    
+        Niter       % Scalar >= 1:
+                    %
+                    % The number of measurement update iterations to
+                    % run through. Default value is 5.
+        
+        alphalim    % Scalar between 1 and 0:
+                    %
+                    % The lower limit for the Gauss-Newton step
+                    % change. This limit decreases until the cost
+                    % function is decreased for the current state
+                    % estimate. If the cost function is not
+                    % decreased, then the alpha value is decreased
+                    % to create a different state estimate. Default
+                    % value is 0.01.
     end
 
 %%%
@@ -79,18 +88,9 @@ classdef batch_iESRIF < batchFilter
             else
                 fprintf('Instantiating batch iESRIF class\n\n')
                 super_args = cell(1,12);
-                super_args{1}   = varargin{1};
-                super_args{2}   = varargin{2};
-                super_args{3}   = varargin{3};
-                super_args{4}   = varargin{4};
-                super_args{5}   = varargin{5};
-                super_args{6}   = varargin{6};
-                super_args{7}   = varargin{7};
-                super_args{8}   = varargin{8};
-                super_args{9}   = varargin{9};
-                super_args{10}  = varargin{10};
-                super_args{11}  = varargin{11};
-                super_args{12}  = varargin{12:end};
+                for jj = 1:12
+                    super_args{jj} = varargin{jj};
+                end
             end
             % batchFilter superclass constructor
             iESRIFobj@batchFilter(super_args{:});
@@ -106,15 +106,31 @@ classdef batch_iESRIF < batchFilter
             % Switch on number of extra arguments.
             switch length(iESRIFobj.optArgs)
                 case 0
-                    iESRIFobj.nRK = 20;
+                    iESRIFobj.nRK = 10;
+                    iESRIFobj.Niter = 5;
+                    iESRIFobj.alphalim = 0.01;
                 case 1
                     iESRIFobj.nRK = iESRIFobj.optArgs{1};
+                    iESRIFobj.Niter = 5;
+                    iESRIFobj.alphalim = 0.01;
+                case 2
+                    iESRIFobj.nRK = iESRIFobj.optArgs{1};
+                    iESRIFobj.Niter = iESRIFobj.optArgs{2};
+                    iESRIFobj.alphalim = 0.01;
+                case 3
+                    iESRIFobj.nRK = iESRIFobj.optArgs{1};
+                    iESRIFobj.Niter = iESRIFobj.optArgs{2};
+                    iESRIFobj.alphalim = iESRIFobj.optArgs{3};
                 otherwise
                     error('Too many input arguments')
             end
             % Ensures extra input arguments have sensible values.
             if iESRIFobj.nRK < 5
                 error('Number of Runge-Kutta iterations should be larger than 5')
+            elseif (iESRIFobj.Niter > 1000 || iESRIFobj.Niter < 1)
+                error('The number of measurement update iterations is too large')
+            elseif (iESRIFobj.alphalim >= 1 || iESRIFobj.alphalim <= 0)
+                error('Lower bound on alpha should be between 0 and 1')
             end
         end
         
@@ -137,24 +153,24 @@ classdef batch_iESRIF < batchFilter
             else
                 tk = iESRIFobj.thist(iESRIFobj.kInit);
             end
+            
+            % Determine the square-root information matrix for the process
+            % noise, and transform the measurements to have an error with
+            % an identity covariance.
+            iESRIFobj.Rvvk      = inv(chol(iESRIFobj.Q)');
+            iESRIFobj.Ra        = chol(iESRIFobj.R);
+            iESRIFobj.Rainvtr   = inv(iESRIFobj.Ra');
+            iESRIFobj.zahist    = iESRIFobj.zhist*(iESRIFobj.Rainvtr');
+            
+            % Initialize quantities for use in the main loop and store the
+            % first a posteriori estimate and its error covariance matrix.
+            iESRIFobj.Rxxk      = inv(chol(iESRIFobj.PInit)');
         end
         
         % This method performs iESRIF class filter estimation
         function iESRIFobj = doFilter(iESRIFobj)
             % Filter initialization method
             [iESRIFobj,xhatk,tk,vk] = initFilter(iESRIFobj);
-            
-            % Determine the square-root information matrix for the process 
-            % noise, and transform the measurements to have an error with 
-            % an identity covariance.
-            iESRIFobj.Rvvk = inv(chol(iESRIFobj.Q)');
-            iESRIFobj.Ra = chol(iESRIFobj.R);
-            iESRIFobj.Rainvtr = inv(iESRIFobj.Ra');
-            iESRIFobj.zahist = iESRIFobj.zhist*(iESRIFobj.Rainvtr');
-            
-            % Initialize quantities for use in the main loop and store the 
-            % first a posteriori estimate and its error covariance matrix.
-            iESRIFobj.Rxxk = inv(chol(iESRIFobj.PInit)');
             
             % Main filter loop.
             for k = iESRIFobj.kInit:(iESRIFobj.kmax-1)
@@ -164,15 +180,12 @@ classdef batch_iESRIF < batchFilter
                 uk = iESRIFobj.uhist(kp1,:)';
                 
                 % Perform dynamic propagation and measurement update
-                [xbarkp1,zetabarxkp1,Rbarxxkp1] = ...
-                    dynamicProp(iESRIFobj,xhatk,uk,vk,tk,tkp1,k);
-                [zetaxkp1,Rxxkp1,zetarkp1] = ...
-                    measUpdate(iESRIFobj,xbarkp1,zetabarxkp1,Rbarxxkp1,kp1);
+                [xbarkp1,zetabarxkp1,Rbarxxkp1] = dynamicProp(iESRIFobj,xhatk,uk,vk,tk,tkp1,k);
+                [zetaxkp1,Rxxkp1,zetarkp1] = measUpdate(iESRIFobj,xbarkp1,zetabarxkp1,Rbarxxkp1,kp1);
                 
                 % Compute the state estimate and covariance at sample k + 1
-                Rxxkp1inv = inv(Rxxkp1);
                 xhatkp1 = Rxxkp1\zetaxkp1;
-                Pkp1 = Rxxkp1inv*(Rxxkp1inv');
+                Pkp1 = Rxxkp1\inv(Rxxkp1);
                 % Store results
                 kp2 = kp1 + 1;
                 iESRIFobj.xhathist(:,kp2) = xhatkp1;
@@ -196,36 +209,113 @@ classdef batch_iESRIF < batchFilter
             else
                 error('Incorrect flag for the dynamics-measurement models')
             end
-            Finv = inv(F);
-            FinvGamma = F\Gamma;
             % QR Factorize
-            Rbig = [iESRIFobj.Rvvk,      zeros(iESRIFobj.nv,iESRIFobj.nx); ...
-                  (-iESRIFobj.Rxxk*FinvGamma),         iESRIFobj.Rxxk/F];
+            Rbig = [iESRIFobj.Rvvk, zeros(iESRIFobj.nv,iESRIFobj.nx); ...
+                  (-iESRIFobj.Rxxk*(F\Gamma)), iESRIFobj.Rxxk/F];
             [Taktr,Rdum] = qr(Rbig);
             Tak = Taktr';
-            zdum = Tak*[zeros(iESRIFobj.nv,1);iESRIFobj.Rxxk*Finv*xbarkp1];
+            zdum = Tak*[zeros(iESRIFobj.nv,1);iESRIFobj.Rxxk*(F\xbarkp1)];
             % Retrieve SRIF terms at k+1 sample
-            idumxvec = [(iESRIFobj.nv+1):(iESRIFobj.nv+iESRIFobj.nx)]';
+            idumxvec = ((iESRIFobj.nv+1):(iESRIFobj.nv+iESRIFobj.nx))';
             Rbarxxkp1 = Rdum(idumxvec,idumxvec);
             zetabarxkp1 = zdum(idumxvec,1);
         end
         
         % Measurement update method at sample k+1.
         function [zetaxkp1,Rxxkp1,zetarkp1] = measUpdate(iESRIFobj,xbarkp1,zetabarxkp1,Rbarxxkp1,kp1)
+            % Regular ESRIF measurement update
+            
+            % Get current transformed measurement
+            zakp1 = iESRIFobj.zahist(kp1,:)';
             % Linearized at sample k+1 a priori state estimate.
             [zbarkp1,H] = feval(iESRIFobj.hmodel,xbarkp1,kp1,1);
             % Transform ith H(k) matrix and non-homogeneous measurement terms
             Ha = iESRIFobj.Rainvtr*H;
-            zEKF = iESRIFobj.zahist(kp1,:)' - iESRIFobj.Rainvtr*zbarkp1 + Ha*xbarkp1;
+            zEKF = zakp1 - iESRIFobj.Rainvtr*zbarkp1 + Ha*xbarkp1;
             % QR Factorize
             [Tbkp1tr,Rdum] = qr([Rbarxxkp1;Ha]);
             Tbkp1 = Tbkp1tr';
             zdum = Tbkp1*[zetabarxkp1;zEKF];
             % Retrieve k+1 SRIF terms
-            idumxvec = [1:iESRIFobj.nx]';
+            idumxvec = (1:iESRIFobj.nx)';
             Rxxkp1 = Rdum(idumxvec,idumxvec);
             zetaxkp1 = zdum(idumxvec,1);
             zetarkp1 = zdum(iESRIFobj.nx+1:end);
+            
+            % Check if MAP iterations are to be performed
+            if iESRIFobj.Niter > 1
+                % Initialize the measurement update iteration-loop
+                xhati = xbarkp1;
+                % Define cost function to minimize
+                Jc = @(xkp1,zetar) (Rbarxxkp1*xkp1-zetabarxkp1)'*(Rbarxxkp1*xkp1-zetabarxkp1)+zetar'*zetar;
+                % Loop through Niter iterations
+                for ii = 2:iESRIFobj.Niter
+                    % Linearize at ith MAP state estimate.
+                    [zbari,Hi] = feval(iESRIFobj.hmodel,xhati,kp1,1);
+                    % Transform ith H(k) matrix and non-homogeneous measurement terms
+                    Hai = iESRIFobj.Rainvtr*Hi;
+                    zEKFi = zakp1 - iESRIFobj.Rainvtr*zbari + Hai*xhati;
+                    % QR Factorize
+                    [Tbitr,Rdum] = qr([Rbarxxkp1;Hai]);
+                    Tbi = Tbitr';
+                    zdumi = Tbi*[zetabarxkp1;zEKFi];
+                    % Retrieve i+1 SRIF terms
+                    Rxxi = Rdum(idumxvec,idumxvec);
+                    zetaxi = zdumi(idumxvec,1);
+                    zetari = zdumi(iESRIFobj.nx+1:end);
+                    % Get 
+                    xhatip1 = Rxxi\zetaxi;
+                    % Calculate cost function at current state estimate
+                    Jcold = Jc(xhati,zetari);
+                    
+                    % NOTE: The calculated (i+1)th MAP state estimate may
+                    % not necessarily decrease the cost function, so we
+                    % perform a loop with Gauss-Newton steps to ensure
+                    % either that the cost function is decreased, or that
+                    % the lower limit of our step is reached.
+                    
+                    
+                    % Initialize Gauss-Newton loop
+                    alpha = 1; Jcnew = Jcold;
+                    while (alpha >= iESRIFobj.alphalim && Jcnew >= Jcold)
+                        % Gauss-Newton step to find new MAP state estimate
+                        xhatip1new = xhati + alpha*(xhatip1-xhati);
+                        % Re-linearize about new state estimate @ (i+1)th step
+                        [zbarip1,Hip1] = feval(iESRIFobj.hmodel,xhatip1new,kp1,1);
+                        % Transform ith H(k) matrix and non-homogeneous measurement terms
+                        Haip1 = iESRIFobj.Rainvtr*Hip1;
+                        zEKFip1 = zakp1 - iESRIFobj.Rainvtr*zbarip1 + Haip1*xhatip1new;
+                        % QR Factorize
+                        [Tbip1tr,Rdum] = qr([Rbarxxkp1;Haip1]);
+                        Tbip1 = Tbip1tr';
+                        zdum = Tbip1*[zetabarxkp1;zEKFip1];
+                        % Retrieve k+1 SRIF terms
+                        Rxxip1new = Rdum(idumxvec,idumxvec);
+                        zetaxip1new = zdum(idumxvec,1);
+                        zetarip1new = zdum(iESRIFobj.nx+1:end);
+                        % Calculate new cost function at MAP state estimate
+                        Jcnew = Jc(xhatip1new,zetarip1new);
+                        % Decrease alpha
+                        alpha = alpha/2;
+                    end
+                    % Debug print
+%                     fprintf('alpha at term: %4.5f\n',alpha)
+                    % Check norm condition so that iterations aren't wasteful
+                    if (norm(xhati-xhatip1new)/norm(xhati) < 1e-12)
+                        % Debug print
+%                         fprintf('norm condition reached at iter: %i\n',ii)
+                        break
+                    end
+                    % Update for next loop
+                    xhati = xhatip1new;
+                end
+                
+                % The a posteriori error covariance, state estimate, &
+                % residual
+                Rxxkp1 = Rxxip1new;
+                zetaxkp1 = zetaxip1new;
+                zetarkp1 = zetarip1new;
+            end
         end
     end
 end

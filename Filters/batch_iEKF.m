@@ -10,41 +10,39 @@
 %% TODO:
 %
 % # Determine validity of measurement update iteration (not consistent with Niter >2)
-% # Get rid of inv( ) warnings
-% # Add continuous measurement model functionality?
 
 %% iEKF Class Definition
 classdef batch_iEKF < batchFilter
-% Inherits batchFilter abstract class
-
-%% iEKF Properties
-% *Inputs:*
+    % Inherits batchFilter abstract class
+    
+    %% iEKF Properties
+    % *Inputs:*
     properties
         
-        nRK         % scalar:
+        nRK         % Scalar >= 5:
                     %
-                    % The Runge Kutta iterations to perform for 
-                    % coverting dynamics model from continuous-time 
-                    % to discrete-time. Default value is 20 RK 
+                    % The Runge Kutta iterations to perform for
+                    % coverting dynamics model from continuous-time
+                    % to discrete-time. Default value is 10 RK
                     % iterations.
-                    
-        Niter       % scalar:
+        
+        Niter       % Scalar >= 1:
                     %
-                    % The number of measurement update iterations to 
+                    % The number of measurement update iterations to
                     % run through. Default value is 5.
-                    
-        alphalim    % scalar:
+        
+        alphalim    % Scalar between 1 and 0:
                     %
-                    % The lower limit for the Gauss-Newton step 
+                    % The lower limit for the Gauss-Newton step
                     % change. This limit decreases until the cost
-                    % function is decreased for the current state 
-                    % estimate. If the cost function is not 
+                    % function is decreased for the current state
+                    % estimate. If the cost function is not
                     % decreased, then the alpha value is decreased
                     % to create a different state estimate. Default
                     % value is 0.01.
     end
     
-%% iEKF Methods
+    %% iEKF Methods
     methods
         % iEKF constructor
         % Input order:
@@ -62,18 +60,9 @@ classdef batch_iEKF < batchFilter
             else
                 fprintf('Instantiating batch iEKF class\n\n')
                 super_args = cell(1,12);
-                super_args{1}   = varargin{1};
-                super_args{2}   = varargin{2};
-                super_args{3}   = varargin{3};
-                super_args{4}   = varargin{4};
-                super_args{5}   = varargin{5};
-                super_args{6}   = varargin{6};
-                super_args{7}   = varargin{7};
-                super_args{8}   = varargin{8};
-                super_args{9}   = varargin{9};
-                super_args{10}  = varargin{10};
-                super_args{11}  = varargin{11};
-                super_args{12}  = varargin{12:end};
+                for jj = 1:11
+                    super_args{jj} = varargin{jj};
+                end
             end
             % batchFilter superclass constructor
             iEKFobj@batchFilter(super_args{:});
@@ -89,7 +78,7 @@ classdef batch_iEKF < batchFilter
             % Switch on number of extra arguments.
             switch length(iEKFobj.optArgs)
                 case 0
-                    iEKFobj.nRK = 20;
+                    iEKFobj.nRK = 10;
                     iEKFobj.Niter = 5;
                     iEKFobj.alphalim = 0.01;
                 case 1
@@ -124,7 +113,7 @@ classdef batch_iEKF < batchFilter
             iEKFobj.Phist        = zeros(iEKFobj.nx,iEKFobj.nx,iEKFobj.kmax+1);
             iEKFobj.eta_nuhist   = zeros(size(iEKFobj.thist));
             
-            % Initialize quantities for use in the main loop and store the 
+            % Initialize quantities for use in the main loop and store the
             % first a posteriori estimate and its error covariance matrix.
             xhatk                                  = iEKFobj.xhatInit;
             Pk                                     = iEKFobj.PInit;
@@ -183,6 +172,8 @@ classdef batch_iEKF < batchFilter
         
         % Measurement update method at sample k+1.
         function [xhatkp1,Pkp1,eta_nukp1] = measUpdate(iEKFobj,xbarkp1,Pbarkp1,kp1)
+            % Regular EKF measurement update 
+            
             % Linearized at sample k+1 a priori state estimate.
             [zbarkp1,H] = feval(iEKFobj.hmodel,xbarkp1,kp1,1);
             zkp1 = iEKFobj.zhist(kp1,:)';
@@ -191,29 +182,84 @@ classdef batch_iEKF < batchFilter
             Skp1 = H*Pbarkp1*(H') + iEKFobj.R;
             Wkp1 = (Pbarkp1*(H'))/Skp1;
             % LMMSE sample k+1 a posteriori state estimate and covariance.
-            Pi = Pbarkp1 - Wkp1*Skp1*(Wkp1');
-            xhatip1 = xbarkp1 + Wkp1*nukp1;
-            
-            % Initialize the measurement update loop
-            xhati = xbarkp1;
-            for i = 1:iEKFobj.Niter-1
-                % Linearized at ith MAP state estimate.
-                [zbari,Hi] = feval(iEKFobj.hmodel,xhati,kp1,1);
-                % Innovations & innovation covariance.
-                nukp1 = zkp1-zbari;
-                Skp1 = Hi*Pbarkp1*(Hi') + iEKFobj.R;
-                % ith MAP error covariance.
-                Pi = Pbarkp1 - Pbarkp1*(Hi')/(Hi*Pbarkp1*(Hi') + iEKFobj.R)*Hi*Pbarkp1;
-                % (i+1)th MAP state estimate.
-                xhatip1 = xhati + Pi*(Hi')*inv(iEKFobj.R)*nukp1 - Pi*inv(Pbarkp1)*(xhati-xbarkp1);
-                % Prepare for the next iteration.
-                xhati = xhatip1;
-            end
-            % Calculate the a posteriori state estimate & error covariance.
-            Pkp1 = Pi;
-            xhatkp1 = xhatip1;
+            xhatkp1 = xbarkp1 + Wkp1*nukp1;
+            Pkp1 = Pbarkp1 - Wkp1*Skp1*(Wkp1');
             % Innovation statistics
-            eta_nukp1 = nukp1'*inv(Skp1)*nukp1;
+            eta_nukp1 = nukp1'*(Skp1\nukp1);
+            
+            % Check if MAP iterations are to be performed
+            if iEKFobj.Niter > 1
+                % Initialize the measurement update iteration-loop
+                xhati = xbarkp1;
+                % Define cost function to minimize
+                Jc = @(xkp1,hkp1)  (xkp1-xbarkp1)'*(Pbarkp1\(xkp1-xbarkp1)) + (zkp1-hkp1)'*(iEKFobj.R\(zkp1-hkp1));
+                % Loop through Niter iterations
+                for ii = 2:iEKFobj.Niter
+                    % Linearize at ith MAP state estimate.
+                    [zbari,Hi] = feval(iEKFobj.hmodel,xhati,kp1,1);
+                    % Calculate cost function at current state estimate
+                    
+                    
+                    % Innovations, innovation covariance, and filter gain.
+                    nukp1 = zkp1-zbari;
+                    Skp1 = Hi*Pbarkp1*(Hi') + iEKFobj.R;
+                    Wkp1 = (Pbarkp1*(Hi'))/Skp1;
+                    % LMMSE sample k+1 a posteriori state estimate and covariance.
+                    xhatip1 = xhati + Wkp1*nukp1;
+%                     Pip1 = Pbarkp1 - Wip1*Sip1*(Wip1');
+                    Jold = Jc(xhati,zbari);
+                    % ith MAP error covariance.
+%                     invPi = inv(Pbarkp1)+(Hi')*(iEKFobj.R\Hi);
+                    %                     Pi = inv(inv(Pbarkp1)+(Hi')*(iEKFobj.R\Hi));
+                    % (i+1)th calculated MAP state estimate
+%                     xhatip1 = xhati + invPi\(Hi')*(iEKFobj.R\(zkp1-zbari)) - invPi\inv(Pbarkp1)*(xhati-xbarkp1);
+                    
+                    % NOTE: The calculated (i+1)th MAP state estimate may
+                    % not necessarily decrease the cost function, so we
+                    % perform a loop with Gauss-Newton steps to ensure
+                    % either that the cost function is decreased, or that
+                    % the lower limit of our step is reached.
+                    
+                    % Initialize Gauss-Newton loop
+                    alpha = 1; Jnew = Jold;
+                    while (alpha >= iEKFobj.alphalim && Jnew >= Jold)
+                        % Gauss-Newton step to find new MAP state estimate
+                        xhatip1new = xhati + alpha*(xhatip1-xhati);
+                        % Re-linearize about new state estimate @ (i+1)th step
+                        [zbarip1,Hip1] = feval(iEKFobj.hmodel,xhatip1new,kp1,1);
+                        
+                        % The a posteriori state estimate and error covariance
+                        xhatkp1 = xhatip1new;
+                        invPkp1 = inv(Pbarkp1)+(Hip1')*(iEKFobj.R\Hip1);
+                        Pkp1 = invPkp1^-1;
+                        % Innovations and innovation statistics
+                        nukp1 = zkp1-zbarip1;
+                        Skp1 = Hip1*(invPkp1\(Hip1')) + iEKFobj.R;
+                        %                 Skp1 = Hip1*Pbarkp1*(Hip1') + iEKFobj.R;
+                        eta_nukp1 = nukp1'*(Skp1\nukp1);
+                        
+                        % Calculate new cost function at MAP state estimate
+                        Jnew = Jc(xhatip1new,zbarip1);
+                        % Decrease alpha
+                        alpha = alpha/2;
+                    end
+                    % Debug print
+                    %                     fprintf('alpha at term: %4.5f\n',alpha)
+                    % Check norm condition so that iterations aren't wasteful
+                    if (norm(xhati-xhatip1new)/norm(xhati) < 1e-12)
+                        % Debug print
+                        %                         fprintf('norm condition reached at iter: %i\n',ii)
+                        break
+                    end
+                    % Update for next loop
+                    xhati = xhatip1new;
+                end
+                
+                % Perform standard LMMSE calculations with iterated MAP
+                % state estimate to get the finalized a posteriori data
+                
+
+            end
         end
     end
 end

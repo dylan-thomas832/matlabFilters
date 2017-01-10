@@ -10,8 +10,8 @@
 %% TODO:
 %
 % # Still weird answers for tricycle problem
-% # Get rid of inv( ) warnings
-% # Add continuous measurement model functionality?
+% # Write resample2?
+% # Clean up and get innovation statistics
 
 %% PF Class Definition
 classdef batch_PF < batchFilter
@@ -21,19 +21,19 @@ classdef batch_PF < batchFilter
 % *Inputs:*
     properties
         
-        nRK             % scalar:
+        nRK             % Scalar >= 5:
                         %      
                         % The Runge Kutta iterations to perform for 
                         % coverting dynamics model from continuous-time 
-                        % to discrete-time. Default value is 20 RK 
+                        % to discrete-time. Default value is 10 RK 
                         % iterations.
         
-        Np              % scalar:
+        Np              % Scalar > 0:
                         %
                         % The number of particles to generate and use in
                         % estimating the state. The default value is 100.
                     
-        resampleFlag    % integer:
+        resampleFlag    % Integer either 0,1,2:
                         %
                         % Flag to determine which sampling algorithm to
                         % implement. Options are 0,1,2 which correspond to
@@ -59,18 +59,9 @@ classdef batch_PF < batchFilter
             else
                 fprintf('Instantiating batch PF class\n\n')
                 super_args = cell(1,12);
-                super_args{1}   = varargin{1};
-                super_args{2}   = varargin{2};
-                super_args{3}   = varargin{3};
-                super_args{4}   = varargin{4};
-                super_args{5}   = varargin{5};
-                super_args{6}   = varargin{6};
-                super_args{7}   = varargin{7};
-                super_args{8}   = varargin{8};
-                super_args{9}   = varargin{9};
-                super_args{10}  = varargin{10};
-                super_args{11}  = varargin{11};
-                super_args{12}  = varargin{12:end};
+                for jj = 1:12
+                    super_args{jj} = varargin{jj};
+                end
             end
             % batchFilter superclass constructor
             PFobj@batchFilter(super_args{:});
@@ -86,7 +77,7 @@ classdef batch_PF < batchFilter
             % Switch on number of extra arguments.
             switch length(PFobj.optArgs)
                 case 0
-                    PFobj.nRK          = 20;
+                    PFobj.nRK          = 10;
                     PFobj.Np           = 100;
                     PFobj.resampleFlag = 1;
                 case 1
@@ -167,7 +158,7 @@ classdef batch_PF < batchFilter
                     % Dummy calc for debug
 %                     zdum = zhist(kp1,:)'-hmodel(Xikp1(:,ii),k+1);
                     % Calculate the current particle's log-weight
-                    logWbarkp1(ii) = -0.5*(zkp1-zkp1_ii)'*inv(PFobj.R)*(zkp1-zkp1_ii) + logWk(ii);
+                    logWbarkp1(ii) = -0.5*(zkp1-zkp1_ii)'*(PFobj.R\(zkp1-zkp1_ii)) + logWk(ii);
                     Xikp1(:,ii) = xkp1_ii;
                 end
                 % Find imax which has a greater log-weight than every other log-weight
@@ -203,7 +194,7 @@ classdef batch_PF < batchFilter
             if strcmp(PFobj.modelFlag,'CD')
                 xbarkp1 = c2dnonlinear(xhatk,uk,vk,tk,tkp1,PFobj.nRK,PFobj.fmodel,0);
             elseif strcmp(PFobj.modelFlag,'DD')
-                xbarkp1 = feval(PFobj.fmodel,xhatk,PFobj.uhist(k+1,:)',vk,k);
+                xbarkp1 = feval(PFobj.fmodel,xhatk,uk,vk,k);
             else
                 error('Incorrect flag for the dynamics-measurement models')
             end

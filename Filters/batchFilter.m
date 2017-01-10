@@ -111,8 +111,7 @@ classdef (Abstract) batchFilter
        
        Phist        % (nx)x(nx)x(kmax+1) Array:
                     %
-                    % A posteriori error covariance matrix 
-                    % time-history.
+                    % A posteriori error covariance matrix time-history.
        
        eta_nuhist   % (kmax)x1 Vector:
                     % 
