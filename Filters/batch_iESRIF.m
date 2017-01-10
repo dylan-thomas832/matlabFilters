@@ -157,14 +157,14 @@ classdef batch_iESRIF < batchFilter
             % Determine the square-root information matrix for the process
             % noise, and transform the measurements to have an error with
             % an identity covariance.
-            iESRIFobj.Rvvk = inv(chol(iESRIFobj.Q)');
-            iESRIFobj.Ra = chol(iESRIFobj.R);
-            iESRIFobj.Rainvtr = inv(iESRIFobj.Ra');
-            iESRIFobj.zahist = iESRIFobj.zhist*(iESRIFobj.Rainvtr');
+            iESRIFobj.Rvvk      = inv(chol(iESRIFobj.Q)');
+            iESRIFobj.Ra        = chol(iESRIFobj.R);
+            iESRIFobj.Rainvtr   = inv(iESRIFobj.Ra');
+            iESRIFobj.zahist    = iESRIFobj.zhist*(iESRIFobj.Rainvtr');
             
             % Initialize quantities for use in the main loop and store the
             % first a posteriori estimate and its error covariance matrix.
-            iESRIFobj.Rxxk = inv(chol(iESRIFobj.PInit)');
+            iESRIFobj.Rxxk      = inv(chol(iESRIFobj.PInit)');
         end
         
         % This method performs iESRIF class filter estimation
