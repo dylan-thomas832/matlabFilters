@@ -134,7 +134,7 @@ classdef batch_iEKF < batchFilter
             [iEKFobj,xhatk,Pk,tk,vk] = initFilter(iEKFobj);
             
             % Main filter loop.
-            for k = 0:(iEKFobj.kmax-1)
+            for k = iEKFobj.kInit:(iEKFobj.kmax-1)
                 % Prepare loop
                 kp1 = k+1;
                 tkp1 = iEKFobj.thist(kp1);
@@ -197,22 +197,14 @@ classdef batch_iEKF < batchFilter
                 for ii = 2:iEKFobj.Niter
                     % Linearize at ith MAP state estimate.
                     [zbari,Hi] = feval(iEKFobj.hmodel,xhati,kp1,1);
-                    % Calculate cost function at current state estimate
-                    
-                    
                     % Innovations, innovation covariance, and filter gain.
-                    nukp1 = zkp1-zbari;
-                    Skp1 = Hi*Pbarkp1*(Hi') + iEKFobj.R;
-                    Wkp1 = (Pbarkp1*(Hi'))/Skp1;
+                    nu = zkp1-zbari;
+                    S = Hi*Pbarkp1*(Hi') + iEKFobj.R;
+                    W = (Pbarkp1*(Hi'))/S;
                     % LMMSE sample k+1 a posteriori state estimate and covariance.
-                    xhatip1 = xhati + Wkp1*nukp1;
-%                     Pip1 = Pbarkp1 - Wip1*Sip1*(Wip1');
-                    Jold = Jc(xhati,zbari);
-                    % ith MAP error covariance.
-%                     invPi = inv(Pbarkp1)+(Hi')*(iEKFobj.R\Hi);
-                    %                     Pi = inv(inv(Pbarkp1)+(Hi')*(iEKFobj.R\Hi));
-                    % (i+1)th calculated MAP state estimate
-%                     xhatip1 = xhati + invPi\(Hi')*(iEKFobj.R\(zkp1-zbari)) - invPi\inv(Pbarkp1)*(xhati-xbarkp1);
+                    xhatip1 = xhati + W*nu;
+                    % Calculate cost function at current state estimate
+                    Jcold = Jc(xhati,zbari);
                     
                     % NOTE: The calculated (i+1)th MAP state estimate may
                     % not necessarily decrease the cost function, so we
@@ -221,44 +213,44 @@ classdef batch_iEKF < batchFilter
                     % the lower limit of our step is reached.
                     
                     % Initialize Gauss-Newton loop
-                    alpha = 1; Jnew = Jold;
-                    while (alpha >= iEKFobj.alphalim && Jnew >= Jold)
+                    alpha = 1; Jcnew = Jcold;
+                    while (alpha >= iEKFobj.alphalim && Jcnew >= Jcold)
                         % Gauss-Newton step to find new MAP state estimate
                         xhatip1new = xhati + alpha*(xhatip1-xhati);
                         % Re-linearize about new state estimate @ (i+1)th step
                         [zbarip1,Hip1] = feval(iEKFobj.hmodel,xhatip1new,kp1,1);
-                        
                         % The a posteriori state estimate and error covariance
-                        xhatkp1 = xhatip1new;
-                        invPkp1 = inv(Pbarkp1)+(Hip1')*(iEKFobj.R\Hip1);
-                        Pkp1 = invPkp1^-1;
+                        invP = inv(Pbarkp1)+(Hip1')*(iEKFobj.R\Hip1);
                         % Innovations and innovation statistics
-                        nukp1 = zkp1-zbarip1;
-                        Skp1 = Hip1*(invPkp1\(Hip1')) + iEKFobj.R;
-                        %                 Skp1 = Hip1*Pbarkp1*(Hip1') + iEKFobj.R;
-                        eta_nukp1 = nukp1'*(Skp1\nukp1);
+                        nu = zkp1-zbarip1;
+                        S = Hip1*(invP\(Hip1')) + iEKFobj.R;
+                        W = (Pbarkp1*(Hip1'))/S;
+                        % LMMSE sample k+1 a posteriori state estimate and covariance.
+                        Pip1 = invP^-1;
+                        eta_nuip1 = nu'*(S\nu);
                         
                         % Calculate new cost function at MAP state estimate
-                        Jnew = Jc(xhatip1new,zbarip1);
+                        Jcnew = Jc(xhatip1new,zbarip1);
                         % Decrease alpha
                         alpha = alpha/2;
                     end
                     % Debug print
-                    %                     fprintf('alpha at term: %4.5f\n',alpha)
+%                     fprintf('alpha at term: %4.5f\n',alpha)
                     % Check norm condition so that iterations aren't wasteful
                     if (norm(xhati-xhatip1new)/norm(xhati) < 1e-12)
                         % Debug print
-                        %                         fprintf('norm condition reached at iter: %i\n',ii)
+%                         fprintf('norm condition reached at iter: %i\n',ii)
                         break
                     end
                     % Update for next loop
                     xhati = xhatip1new;
                 end
                 
-                % Perform standard LMMSE calculations with iterated MAP
-                % state estimate to get the finalized a posteriori data
-                
-
+                % The a posteriori error covariance, state estimate, &
+                % error statistics
+                xhatkp1 = xhati;
+                Pkp1 = Pip1;
+                eta_nukp1 = eta_nuip1;
             end
         end
     end

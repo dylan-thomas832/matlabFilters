@@ -18,7 +18,7 @@ filter = 'iEKF';
 % Initial state estimate supplied to filter (0/1)
 kInit = 0;
 % Number of Runge Kutta iterations for dynamics model conversion (5-100)
-nRK = 10;
+nRK = 20;
 % Number of measurement update iterations (1-100)
 Niter = 10;
 % Lower limit on Gauss-Newton search in measurement updates

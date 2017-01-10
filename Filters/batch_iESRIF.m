@@ -274,7 +274,6 @@ classdef batch_iESRIF < batchFilter
                     % either that the cost function is decreased, or that
                     % the lower limit of our step is reached.
                     
-                    
                     % Initialize Gauss-Newton loop
                     alpha = 1; Jcnew = Jcold;
                     while (alpha >= iESRIFobj.alphalim && Jcnew >= Jcold)
@@ -290,11 +289,11 @@ classdef batch_iESRIF < batchFilter
                         Tbip1 = Tbip1tr';
                         zdum = Tbip1*[zetabarxkp1;zEKFip1];
                         % Retrieve k+1 SRIF terms
-                        Rxxip1new = Rdum(idumxvec,idumxvec);
-                        zetaxip1new = zdum(idumxvec,1);
-                        zetarip1new = zdum(iESRIFobj.nx+1:end);
+                        Rxxip1 = Rdum(idumxvec,idumxvec);
+                        zetaxip1 = zdum(idumxvec,1);
+                        zetarip1 = zdum(iESRIFobj.nx+1:end);
                         % Calculate new cost function at MAP state estimate
-                        Jcnew = Jc(xhatip1new,zetarip1new);
+                        Jcnew = Jc(Rxxip1\zetaxip1,zetarip1);
                         % Decrease alpha
                         alpha = alpha/2;
                     end
@@ -312,9 +311,9 @@ classdef batch_iESRIF < batchFilter
                 
                 % The a posteriori error covariance, state estimate, &
                 % residual
-                Rxxkp1 = Rxxip1new;
-                zetaxkp1 = zetaxip1new;
-                zetarkp1 = zetarip1new;
+                Rxxkp1 = Rxxip1;
+                zetaxkp1 = zetaxip1;
+                zetarkp1 = zetarip1;
             end
         end
     end
