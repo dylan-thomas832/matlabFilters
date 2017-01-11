@@ -5,11 +5,7 @@
 %
 % *Note: the user must instantiate the class with no properties, as a
 % structure with fieldnames matching all input properties, or all input
-% properties separately.*
-
-%% TODO:
-%
-% # Determine validity of measurement update iteration (not consistent with Niter >2)
+% properties separately.
 
 %% iEKF Class Definition
 classdef batch_iEKF < batchFilter

@@ -14,7 +14,7 @@ addPaths;
 %% User defined variables
 
 % Filter to test (EKF/iEKF/ESRIF/iESRIF/UKF/PF/RegPF/All)
-filter = 'iEKF';
+filter = 'iESRIF';
 % Initial state estimate supplied to filter (0)
 kInit = 0;
 % Number of Runge Kutta iterations for dynamics model conversion (5-100)
