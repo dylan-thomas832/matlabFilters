@@ -14,7 +14,7 @@ addPaths;
 %% User defined variables
 
 % Filter to test (EKF/iEKF/ESRIF/iESRIF/UKF/PF/RegPF/All)
-filter = 'EKF';
+filter = 'ESRIF';
 % Number of Runge Kutta iterations for dynamics model conversion (5-100)
 nRK = 50;
 % Number of measurement update iterations (1-100)
@@ -72,7 +72,7 @@ xhatkhist(:,1) = xhat0;
 Pkhist(:,:,1) = P0;
 
 
-ekf = step_EKF({inputStruct});
+ekf = step_ESRIF({inputStruct});
 % Main loop which executes EKF 
 for k = 0:(kmax-1)
     kp1 = k + 1;

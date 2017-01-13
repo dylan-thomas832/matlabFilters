@@ -7,10 +7,6 @@
 % structure with fieldnames matching all input properties, or all input
 % properties separately.*
 
-%% TODO:
-%
-% # Figure out how to add in LTI $F$, $G$, $\Gamma$, $H$ matrices for cont & disc models
-
 %% SRIF Class Deinfition
 classdef batch_SRIF < batchFilter
 % Inherits batchFilter abstract class
