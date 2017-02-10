@@ -7,3 +7,8 @@ OtherFuncs/html
 
 # Autosaves #
 *.asv
+
+
+# Remove Directories #
+/Data
+/OtherFuncs
